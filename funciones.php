@@ -168,18 +168,21 @@ function hora_create($time) {
   return $time;
 }
 
-function getNextHour() {
-    $hora = hora();
-    $split = explode(":", $hora);
-    $hou = 1;
-    $min = ":00";
-    if($split[1] < 15) { //Si los minutos es menor que 15
-        $hou = 0;
-        $min = ":30";
-    }else if($split[1] > 45){ //Si los minutos es menor que 15
-        $min = ":30";
-    }
-    return ($split[0] + $hou) . $min;
+
+function getNextInterval(int $interval = 5): string 
+{
+    $now = new DateTimeImmutable('now', new DateTimeZone('America/Guayaquil'));
+    $minutes = (int)$now->format('i');
+    $addMinutes = $interval - ($minutes % $interval);
+    
+    $nextTime = $now->modify("+{$addMinutes} minutes")
+                    ->setTime(
+                        (int)$now->modify("+{$addMinutes} minutes")->format('H'), 
+                        (int)$now->modify("+{$addMinutes} minutes")->format('i'), 
+                        0
+                    );
+
+    return $nextTime->format('H:i');
 }
 
 function horaFormat($hora){
@@ -494,13 +497,14 @@ function calculaedad($fechanacimiento){
   return $ano_diferencia;
 }
 
-function sinTildes($cadena){
-      $originales = 'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûýýþÿŔŕ';
-      $modificadas ='aaaaaaaceeeeiiiidnoooooouuuuybsaaaaaaaceeeeiiiidnoooooouuuyybyRr';
-      $cadena = utf8_decode($cadena);
-      $cadena = strtr($cadena, utf8_decode($originales), $modificadas);
-      $cadena = strtolower($cadena);
-      return utf8_encode($cadena);
+function sinTildes($cadena) {
+    $originales = 'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûýýþÿŔŕ';
+    $modificadas = 'aaaaaaaceeeeiiiidnoooooouuuuybsaaaaaaaceeeeiiiidnoooooouuuyybyRr';
+    $cadena = mb_convert_encoding($cadena, 'UTF-8', 'auto');
+    $cadena = strtr($cadena, $originales, $modificadas);
+    $cadena = mb_strtolower($cadena, 'UTF-8');
+    
+    return $cadena;
 }
 
 function sinComillas($cadena){

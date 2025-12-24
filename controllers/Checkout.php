@@ -211,16 +211,15 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
 			$hi = hora_create($hora_ini);
 			$hc = hora();
 			if($hc > $hi) {
-				$hora_ini = getNextHour();
-				// $addTime = false;
+				$hora_ini = getNextInterval();
+                $addInitTime = $minutes; //Sumar el primer intervalo
+				if($tiempo_preparacion > $minutes){
+                    $addInitTime = $tiempo_preparacion;
+                }
+                $hora_ini = sumarTiempoSeguro($hora_ini, $addInitTime);
+                if ($hora_ini === false)
+                    return [];
 			}
-		}
-		
-		if($tiempo_preparacion > 0){
-		    $hora_ini = sumarTiempoSeguro($hora_ini, $tiempo_preparacion);
-		    if ($hora_ini === false) {
-		        return [];   
-		    }
 		}
         
         $horas = [];
