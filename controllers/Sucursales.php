@@ -92,20 +92,11 @@ $ClEmpresas = new cl_empresas();
 			$latitud = $request[1];
 			$longitud = $request[2];
 			
-			if($latitud == "intervalos"){
-				$return = getIntervalos($longitud);
-			    showResponse($return);
-			}
-			
 			if($latitud == "disponibilidad"){
 				$return = getDisponibilidad($longitud);
 			    showResponse($return);
 			}
 			
-			if($latitud == "onlypickup"){
-				$return = getSucursalPickup($longitud);
-			    showResponse($return);
-			}
 			
 			$return = getCobertura($latitud, $longitud);
 			showResponse($return);
@@ -113,11 +104,6 @@ $ClEmpresas = new cl_empresas();
 			$latitud = $request[1];
 			$longitud = $request[2];
 			$cod_sucursal = $request[3];
-			
-			if($latitud == "intervalos"){
-				$return = getIntervalos($longitud, $cod_sucursal);
-			    showResponse($return);
-			}
 			
 			if($latitud == "disponibilidad"){
 				$return = getDisponibilidad($longitud, $cod_sucursal);
@@ -134,10 +120,6 @@ $ClEmpresas = new cl_empresas();
 	else if ($method == "POST") {
 	    $num_variables = count($request);
 	    if ($num_variables == 2) {
-    		if ($request[1] == "checkout") {
-    			$return = getInfoCheckout();
-    			showResponse($return);
-    		}
 			if ($request[1] == "precio") {
     			$return = getPrecioDefinitivo();
     			showResponse($return);
@@ -251,77 +233,6 @@ function getCobertura($latitud, $longitud){
 	showResponse($return);
 }
 
-//SE ESTA PREGUNTANDO POR PROGRAMAR PEDIDO DE LA TABLA EMPRESA, DEBERÁ CAMBIAR AL DE LA TABLA SUCURSAL
-function getIntervalos($cod_sucursal, $fecha=""){
-    global $ClSucursales;
-    if($fecha == "")
-        $fecha = fecha_only();
-    
-    $resp = $ClSucursales->get($cod_sucursal);
-    if($resp){
-        $horasDisponibles=[];
-        
-        $disponibilidad = $ClSucursales->getHorarioFecha($cod_sucursal, $fecha);
-        if($disponibilidad){
-            $disponibilidad['fecha'] = $fecha;
-            $disponibilidad['currentDay'] = true;
-            $horas = getListaHoraIntervalos($disponibilidad['hora_ini'], $disponibilidad['hora_fin'], 30, $cod_sucursal, true);
-        	foreach ($horas as $dt) {
-        		$hora = $dt->format('H:i');
-        		
-        		if($fecha == fecha_only()){
-        		    if($hora <= hora_only()){
-        		        continue;
-        		    }  
-        		}
-        		
-        		$h['hora'] = $hora;
-        		$h['disponible'] = $ClSucursales->datetimeDisponibilidad($cod_sucursal, $fecha, $hora);
-        		$horasDisponibles[]=$h;
-        	}
-        }
-        
-        /*DIAS PARA AGENDAR EN EL FUTURO*/
-        $dias=[];
-        if($resp['programar_pedido'] == 1){
-            require_once "clases/cl_empresas.php";
-            $ClEmpresas = new cl_empresas();
-            $programar = $ClEmpresas->getProgramar();
-            if($programar['programar_pedido'] == 1){
-                $resp['programar_dias'] = $programar['dias'];
-                $cantDias = $programar['dias'];
-                $fechaMaxima = fecha_only();
-                
-                for($x=0; $x<$cantDias; $x++){
-                    $d['dia'] = $fechaMaxima;
-                    $d['diaTexto'] = fechaLatinoShort($fechaMaxima);
-                    if($x==0)
-                        $weekname = "Hoy";
-                    else if($x == 1)    
-                        $weekname = "Mañana";
-                    else
-                        $weekname = Weekday($fechaMaxima);
-                    $d['weekname'] = $weekname;
-                    $dias[$x] = $d;
-                    $fechaMaxima = fechaXDiasMas($x+1);
-                }
-            }
-            else{
-                $resp['programar_pedido'] = 0;
-            }
-        }
-        $return['success'] = 1;
-		$return['mensaje'] = "Correcto";
-		$return['data'] = $resp;
-		$return['disponibilidad'] = $disponibilidad;
-		$return['intervalos'] = $horasDisponibles;
-		$return['dias'] = $dias;
-    }else{
-        $return['success'] = 0;
-		$return['mensaje'] = "Sucursal no existente";
-    }
-    return $return;
-}
 
 function getDisponibilidad($cod_sucursal, $fecha=""){
     global $ClSucursales;
@@ -346,165 +257,6 @@ function getDisponibilidad($cod_sucursal, $fecha=""){
     return $return;
 }
 
-function getSucursalPickup($cod_sucursal){
-	global $ClSucursales;
-
-	$sucursal = $ClSucursales->getSucursal($cod_sucursal);
-	if($sucursal){
-	    $sucursal['horarios'] = $ClSucursales->getHorarios($sucursal['cod_sucursal']);
-		
-		if($sucursal['abierto'] == false){  //Ver a que hora abre
-		    $sucursal['motivo_cierre'] = $ClSucursales->motivo_cierre;
-		    $sucursal['prox_status_enable'] = "Disponible ".$ClSucursales->proximaApertura($sucursal['cod_sucursal']);
-		    if(!isset($sucursal['motivo_cierre'])){
-		        $sucursal['motivo_cierre'] = "Tienda Cerrada";
-		    }
-		}else{                                      //Ver a que hora cierra
-		    $sucursal['motivo_cierre'] = "";
-		    list($hora, $minuto, $segundo) = explode(':', $sucursal['hora_fin']);
-		    $sucursal['prox_status_enable'] = "Cierra hoy a las ".$hora.":".$minuto;
-		}
-		
-		//HORARIOS RETIRAR PICKUP
-		$horas=getIntervalsHour($sucursal['cod_sucursal']);
-		$sucursal['horas_pickup'] = $horas;
-		
-		//PROGRAMACION DE PEDIDOS
-		if($sucursal['programar_pedido'] == 1) {
-		    $dias=[];
-		    $diasProg = $sucursal['programar_pedido_dias'];
-		    
-		    $fechaProg = fecha_only();
-		    if(count($horas) == 0){
-		        $fechaProg = fechaXDiasMas(1);
-		        $sucursal['horas_pickup'] = getIntervalsHour($sucursal['cod_sucursal'], $fechaProg);
-		    }
-		    
-		    for($x=0; $x<$diasProg; $x++){
-                $d['dia'] = $fechaProg;
-                $d['diaTexto'] = fechaLatinoShortWeekday($fechaProg);
-                $dias[$x] = $d;
-                $fechaProg = fechaXDiasMasDate($fechaProg, 1);
-            }
-            $sucursal['programar_dias'] = $dias;
-		}
-		
-
-		$return['success'] = 1;
-		$return['mensaje'] = "Correcto";
-		$return['data'] = $sucursal;
-	}else{
-		$return['success'] = 0;
-		$return['mensaje'] = "No hay Cobertura";
-	}
-	showResponse($return);
-}
-
-function getInfoCheckout(){
-    global $ClSucursales;
-    global $ClEmpresas;
-    global $input;
-    extract($input);
-    if(!isset($input['type'])){
-        showResponse(['success' => 0, 'mensaje' => 'El tipo es obligatorio']);
-    }
-    if(!isset($input['office_id'])){
-        showResponse(['success' => 0, 'mensaje' => 'El identificador de la oficina es obligatorio']);
-    }
-    
-    $office = $ClSucursales->get($office_id);
-    if($office){
-        $office['programar_pedido'] = ($office['programar_pedido'] == 1) ?  true : false;
-        // $office['horas_pickup'] = getIntervalsHour($office_id);
-        if($office['programar_pedido']){
-            $dates = $ClSucursales->getProgramarPedido($office_id);
-            if($dates){
-                foreach($dates as $key => $date){
-                    $dates[$key]['horas_pickup'] = getIntervalsHour($office_id, $date['dia']);
-                }
-                $office['programar_disponibilidad'] = $dates;
-            }else{
-                $office['programar_pedido'] = false;
-                $office['programar_disponibilidad'] = [];    
-            }
-        }else{
-            $dia = fecha_only();
-            $office['programar_disponibilidad'][0] = [
-                "dia" => $dia,
-                "diaTexto" => fechaLatinoShortWeekday($dia),
-                "horas_pickup" => getIntervalsHour($office_id),
-            ];
-        }
-        
-        /*TOKENS PAYMENTEZ*/
-        $office['payment_tokens'] = $ClSucursales->getTokensPaymentez($office_id);
-    }
-    
-    $payments = $ClEmpresas->getFormasPagoEmpresa($type == "delivery" ? "envio" : "pickup");
-    
-    showResponse(['success' => 1, 'mensaje' => 'Lista', 'office' => $office, 'payment_methods' => $payments]);
-}
-
-function getIntervalsHour($cod_sucursal, $fecha=""){
-    global $ClSucursales;
-    $isCurrentDay = false;
-    $dateCurrent = fecha_only();
-    if($fecha == ""){
-        $fecha = $dateCurrent;
-        $isCurrentDay = true;
-    }else{
-        if($dateCurrent == $fecha){
-            $isCurrentDay = true;
-        }
-    }
-        
-    $disponibilidad = $ClSucursales->getHorarioFecha($cod_sucursal, $fecha);
-    if($disponibilidad){
-        
-		$addTime = true;
-		$hora_ini = $disponibilidad['hora_ini'];
-		if($isCurrentDay) {
-			$hi = hora_create($hora_ini);
-			$hc = hora();
-			if($hc > $hi) {
-				$hora_ini = getNextHour();
-				$addTime = false;
-			}
-		}
-        
-        $horas = [];
-        $intervalos = getListaHoraIntervalos($hora_ini, $disponibilidad['hora_fin'], 30, $cod_sucursal, $addTime);
-		foreach ($intervalos as $intervalo) {
-		    $hora = $intervalo->format('H:i');
-		    
-		    $disponible = $ClSucursales->datetimeDisponibilidad($cod_sucursal, fecha_only(), $hora);
-		    if($disponible){
-		        $horas[] = $hora;
-		    }
-		}
-		return $horas;
-    }else{
-        return [];
-    }
-}
-
-function getListaHoraIntervalos($hora_inicio, $hora_fin, $intervalo, $cod_sucursal, $addTime){
-	global $ClSucursales;
-
-	if($addTime) {
-		$hasTiempoProgramar = $ClSucursales->getSucursalTiempoProgramar($cod_sucursal);
-		if($hasTiempoProgramar) {
-			$hora_inicio = sumarTiempo2($hora_inicio, "+" . $hasTiempoProgramar["hora_apertura"], "minute");
-			$hora_fin = sumarTiempo2($hora_fin, "-" . $hasTiempoProgramar["hora_cierre"], "minute");
-		}
-	}
-
-  $start = new DateTime($hora_inicio);
-  $end   = new DateTime($hora_fin);
-  $interval = DateInterval::createFromDateString($intervalo.' minute');
-  $period = new DatePeriod($start, $interval, $end);
-  return $period;
-}
 
 function fechaXDiasMas($num){
   date_default_timezone_set('America/Guayaquil');
