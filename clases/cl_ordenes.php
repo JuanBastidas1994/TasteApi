@@ -94,17 +94,18 @@ class cl_ordenes
 		}
 
 		public function getOrdenTracker($cod_orden){
-			$query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario, s.nombre as sucursal, s.direccion, s.telefono, s.transferencia_img, s.latitud as latitud_sucursal, s.longitud as longitud_sucursal, c.total, c.estado, c.fecha, c.latitud, c.longitud, c.is_envio, c.hora_retiro as fecha_retiro, c.cod_courier as courier, c.order_token as token_courier, c.pago 
-			            FROM tb_orden_cabecera c, tb_sucursales s 
-			            WHERE c.cod_sucursal = s.cod_sucursal
-			            AND c.cod_orden = $cod_orden
-						AND c.cod_empresa = ".cod_empresa;
+			$query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario, s.nombre as sucursal, s.direccion, s.telefono, s.transferencia_img, s.latitud as latitud_sucursal, s.longitud as longitud_sucursal, 
+			                c.total, c.estado, c.fecha, c.latitud, c.longitud, c.is_envio, c.hora_retiro as fecha_retiro, c.cod_courier as courier, c.order_token as token_courier, c.pago, c.is_altademanda 
+		            FROM tb_orden_cabecera c, tb_sucursales s 
+		            WHERE c.cod_sucursal = s.cod_sucursal
+		            AND c.cod_orden = $cod_orden
+					AND c.cod_empresa = ".cod_empresa;
 			$resp = Conexion::buscarRegistro($query);
 			return $resp;
 		}
 		
 		public function getMotorizadoByOrder($cod_orden){
-		    $query = "SELECT u.nombre, u.apellido, u.telefono, u.imagen, u.latitud, u.longitud, u.fecha_ubicacion
+		    $query = "SELECT u.nombre, u.apellido, u.telefono, u.imagen, u.latitud, u.longitud, u.fecha_ubicacion, u.placa
 			              FROM tb_motorizado_asignacion m, tb_usuarios u
 			              WHERE m.cod_motorizado = u.cod_usuario
 			              AND m.cod_orden = ".$cod_orden;
@@ -224,6 +225,8 @@ class cl_ordenes
 				$comentarios = (isset($checkout['comentarios'])) ? str_replace("'", "", $checkout['comentarios']) : "";
 				$origen = (isset($checkout['origen'])) ? $checkout['origen'] : "API";
 				$envio = (isset($checkout['envio'])) ? number_format(floatval($checkout['envio']),2) : "";
+				$service = (isset($checkout['service'])) ? $checkout['service'] : 0;
+				$altaDemanda = (isset($checkout['alta_demanda'])) ? $checkout['alta_demanda'] : 0;
 				$base0 = number_format($checkout['base0'],2);
 				$base12 = number_format($checkout['base12'],2);
 				$subtotal = number_format($checkout['subtotal'],2);
@@ -245,6 +248,7 @@ class cl_ordenes
 				$ciudad = 0;
 				$distancia=0;
 				$tipoEnvio = $MetodoEnvio['tipo'];
+				$express = 0;
 				if($tipoEnvio=="delivery"){
 					$is_envio = 1;
 					$latitud = $MetodoEnvio['lat'];
@@ -252,6 +256,7 @@ class cl_ordenes
 				// 	$hora = (isset($MetodoEnvio['hora'])) ? $MetodoEnvio['hora'] : $fecha;
 					$hora = $MetodoEnvio['hora'] ?? $fecha;
 					$programado = (isset($MetodoEnvio['programado'])) ? $MetodoEnvio['programado'] : 0;
+					$express = (isset($MetodoEnvio['express'])) ? $MetodoEnvio['express'] : 0;
 					$direccion = (isset($MetodoEnvio['direccion'])) ? str_replace("'", "", $MetodoEnvio['direccion']) : "";
 					$referencia = (isset($MetodoEnvio['referencia'])) ? str_replace("'", "", $MetodoEnvio['referencia']) : "";
 					if($envio == "")
@@ -284,8 +289,8 @@ class cl_ordenes
 				}
 
 				$api_version = api_version;
-				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, observacion, medio_compra, api_version, iva_porcentaje, envio_iva) ";
-				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva)";
+				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, service, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, is_express, observacion, medio_compra, api_version, iva_porcentaje, envio_iva, is_altademanda) ";
+				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $service, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', $express, '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva, $altaDemanda)";
 				if(Conexion::ejecutar($query,NULL)){
 					$id = Conexion::lastId();
 					
@@ -356,10 +361,39 @@ class cl_ordenes
 							$desc_text = (isset($producto['promocion'])) ? $producto['promocion'] : "";
 						}
 						
-						//Conexion::ejecutar("SET NAMES 'utf8mb4'", NULL);
-						$queryDetalle = "INSERT INTO tb_orden_detalle(cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax, cantidad, base_0, base_12, descuento_porcentaje, descuento, subtotal_12, subtotal_0, desc_text, precio_final, adicional_total, adicional_no_tax_unidad, adicional_no_tax_total) ";
-						$queryDetalle.= "VALUES($id, $codigo, '$descripcion', '$comentario_producto', $precio, $precio_no_tax, $cantidad, $base0, $base12, $descuentoPorcentaje, $descuento, $subtotal12, $subtotal0, '$desc_text', $precio_total, $adicional_total, $adicional_no_tax, $adicional_no_tax_total)";
-						Conexion::ejecutar($queryDetalle,NULL);
+						Conexion::ejecutar("SET NAMES 'utf8mb4'", NULL);
+				// 		$queryDetalle = "INSERT INTO tb_orden_detalle(cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax, cantidad, base_0, base_12, descuento_porcentaje, descuento, subtotal_12, subtotal_0, desc_text, precio_final, adicional_total, adicional_no_tax_unidad, adicional_no_tax_total) ";
+				// 		$queryDetalle.= "VALUES($id, $codigo, '$descripcion', '$comentario_producto', $precio, $precio_no_tax, $cantidad, $base0, $base12, $descuentoPorcentaje, $descuento, $subtotal12, $subtotal0, '$desc_text', $precio_total, $adicional_total, $adicional_no_tax, $adicional_no_tax_total)";
+				// 		Conexion::ejecutar($queryDetalle,NULL);
+        				$sql = "INSERT INTO tb_orden_detalle(
+                            cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax,
+                            cantidad, base_0, base_12, descuento_porcentaje, descuento,
+                            subtotal_12, subtotal_0, desc_text, precio_final, adicional_total, 
+                            adicional_no_tax_unidad, adicional_no_tax_total
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                        
+                        $data = [
+                            $id,
+                            $codigo,
+                            $descripcion,
+                            $comentario_producto,
+                            $precio,
+                            $precio_no_tax,
+                            $cantidad,
+                            $base0,
+                            $base12,
+                            $descuentoPorcentaje,
+                            $descuento,
+                            $subtotal12,
+                            $subtotal0,
+                            $desc_text,
+                            $precio_total,
+                            $adicional_total,
+                            $adicional_no_tax,
+                            $adicional_no_tax_total
+                        ];
+                        
+                        Conexion::ejecutar($sql, $data);
 						//mylog($queryDetalle, "SAVE_ORDEN_DETALLE");
 
 					}
@@ -469,7 +503,7 @@ class cl_ordenes
 		}
 
 		public function get_orden_array($cod_orden){
-			$query = "SELECT oc.cod_orden, oc.fecha, oc.subtotal, oc.descuento, oc.envio, oc.iva, oc.total, oc.estado, oc.is_envio, oc.is_programado, oc.hora_retiro, oc.referencia, oc.referencia2, u.nombre, u.apellido, u.correo, u.telefono, s.nombre as sucursal, s.direccion as sucursal_direccion
+			$query = "SELECT oc.cod_orden, oc.fecha, oc.subtotal, oc.descuento, oc.envio, oc.service, oc.iva, oc.total, oc.estado, oc.is_envio, oc.is_programado, oc.hora_retiro, oc.referencia, oc.referencia2, u.nombre, u.apellido, u.correo, u.telefono, s.nombre as sucursal, s.direccion as sucursal_direccion
 						FROM tb_orden_cabecera oc, tb_usuarios u, tb_sucursales s
 						WHERE oc.cod_usuario = u.cod_usuario
 						AND oc.cod_sucursal = s.cod_sucursal 

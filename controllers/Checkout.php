@@ -47,15 +47,27 @@ function getInfoCheckout(){
     $input = validateInputs(array("type", "office_id", "user_id"));
     extract($input);
     
+    $preparation_time = isset($input['preparation_time']) ? $preparation_time : 0;
+    
     $office = $ClSucursales->get($office_id);
     if(!$office)
         showResponse(['success' => 0, 'mensaje' => 'Sucursal no existente o inactiva']);
+        
     
     if($type == "onsite")
         $office['programar_pedido'] = 0;
+        
+    $type = in_array(strtolower($type), ['delivery', 'd', 'envio']) ? "envio" : "pickup";
     
+    $office['alta_demanda'] = false;
     if(!$office['abierto'])
         $office['prox_apertura'] = $ClSucursales->proximaApertura($office_id);
+    else{
+        //Si esta abierto consultar si esta en alta demanda.
+        $office['alta_demanda'] = $ClSucursales->getAltaDemanda($office_id);
+    }    
+    
+    
         
     $office['programar_pedido'] = ($office['programar_pedido'] == 1) ?  true : false;
     if($office['programar_pedido']){
@@ -63,7 +75,7 @@ function getInfoCheckout(){
         if($dates){
             $datesAvailables = [];
             foreach($dates as $key => $date){
-                $hoursAvailables = getIntervalsHour($office_id, $date['dia']);
+                $hoursAvailables = getIntervalsHour($office_id, $date['dia'], $type, $office['intervalo'], $preparation_time);
                 if(count($hoursAvailables) > 0){
                     $dates[$key]['horas_pickup'] = $hoursAvailables;
                     $datesAvailables[] = $dates[$key];
@@ -80,9 +92,33 @@ function getInfoCheckout(){
         $office['programar_disponibilidad'][0] = [
             "dia" => $dia,
             "diaTexto" => fechaLatinoShortWeekday($dia),
-            "horas_pickup" => getIntervalsHour($office_id),
+            "horas_pickup" => getIntervalsHour($office_id, "", $type, $office['intervalo'], $preparation_time),
         ];
     }
+    
+    //PEDIDO EXPRESS
+    $deliveryTextTitle = "Entregar lo antes posible";
+    $deliveryText = "Enviaremos el pedido lo más pronto posible";
+    $pedido_express = false;
+    if(cod_empresa == 204 || cod_empresa == 70){
+        $pedido_express = [
+            'title' => 'Pedido Express',
+            'desc' => 'Enviaremos el pedido lo mas pronto posible',
+            'price' => 5,
+            'active' => $office['abierto']
+        ];
+        $deliveryTextTitle = "Entrega en horario disponible";
+        $hora = intval(fechaFormat('H'));
+        if($hora < 12){
+            $deliveryText = "Tu pedido será despachado entre la 1 y 6pm";
+        }else{
+            $deliveryText = "Tu pedido será entregado el día de mañana entre la 1pm y 6pm";
+        }
+    }
+    $office['delivery_text_title'] = $deliveryTextTitle;
+    $office['delivery_text'] = $deliveryText;
+    $office['pedido_express'] = $pedido_express;
+    
     
     /*TOKENS PAYMENTEZ*/
     //TODO Falta una tabla que indique la sucursal que botón de pago tiene
@@ -94,12 +130,13 @@ function getInfoCheckout(){
         $save_card = ($paymentTokens['save_card'] == 1);
     }
     
-    $type = in_array(strtolower($type), ['delivery', 'd', 'envio']) ? "envio" : "pickup";
+    
     
     $payments = $ClEmpresas->getFormasPagoEmpresa($type, 
                                                     ($proveedor==0), 
                                                     $save_card,
-                                                    $office['transferencia_img']
+                                                    $office['transferencia_img'],
+                                                    $office_id
                                                 );
     
     //Fidelizacion
@@ -131,6 +168,7 @@ function getInfoCheckout(){
         'free_product' => $freeProduct,
         'save_card' => $save_card,
         'validate_phone' => false,
+        'preparation_time' => $preparation_time
     ]);
 }
 
@@ -148,10 +186,13 @@ function getSugerencias(){
 }
 
 //SUCURSAL FUNCIONES
-function getIntervalsHour($cod_sucursal, $fecha=""){
+function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiempo_preparacion=0){
     global $ClSucursales;
     $isCurrentDay = false;
     $dateCurrent = fecha_only();
+    
+    
+    
     if($fecha == ""){
         $fecha = $dateCurrent;
         $isCurrentDay = true;
@@ -171,12 +212,19 @@ function getIntervalsHour($cod_sucursal, $fecha=""){
 			$hc = hora();
 			if($hc > $hi) {
 				$hora_ini = getNextHour();
-				$addTime = false;
+				// $addTime = false;
 			}
+		}
+		
+		if($tiempo_preparacion > 0){
+		    $hora_ini = sumarTiempoSeguro($hora_ini, $tiempo_preparacion);
+		    if ($hora_ini === false) {
+		        return [];   
+		    }
 		}
         
         $horas = [];
-        $intervalos = getListaHoraIntervalos($hora_ini, $disponibilidad['hora_fin'], 30, $cod_sucursal, $addTime);
+        $intervalos = getListaHoraIntervalos($hora_ini, $disponibilidad['hora_fin'], $minutes, $cod_sucursal, $addTime, $type);
 		foreach ($intervalos as $intervalo) {
 		    $hora = $intervalo->format('H:i');
 		    
@@ -191,11 +239,11 @@ function getIntervalsHour($cod_sucursal, $fecha=""){
     }
 }
 
-function getListaHoraIntervalos($hora_inicio, $hora_fin, $intervalo, $cod_sucursal, $addTime){
+function getListaHoraIntervalos($hora_inicio, $hora_fin, $intervalo, $cod_sucursal, $addTime, $type){
 	global $ClSucursales;
 
 	if($addTime) {
-		$hasTiempoProgramar = $ClSucursales->getSucursalTiempoProgramar($cod_sucursal);
+		$hasTiempoProgramar = $ClSucursales->getSucursalTiempoProgramar($cod_sucursal, $type);
 		if($hasTiempoProgramar) {
 			$hora_inicio = sumarTiempo2($hora_inicio, "+" . $hasTiempoProgramar["hora_apertura"], "minute");
 			$hora_fin = sumarTiempo2($hora_fin, "-" . $hasTiempoProgramar["hora_cierre"], "minute");

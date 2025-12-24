@@ -40,7 +40,7 @@ class cl_sucursales
 		}
 		
 		public function get($cod_sucursal){
-		    $query = "SELECT cod_sucursal as id, nombre, direccion, latitud, longitud, distancia_km, hora_ini, hora_fin, telefono, correo, image, delivery, pickup, programar_pedido, transferencia_img, banner_xl, show_banner, estado, envio_grava_iva, cod_empresa
+		    $query = "SELECT cod_sucursal as id, nombre, direccion, latitud, longitud, distancia_km, hora_ini, hora_fin, telefono, correo, image, delivery, pickup, programar_pedido, transferencia_img, banner_xl, show_banner, estado, envio_grava_iva, cod_empresa, intervalo
 		            FROM tb_sucursales WHERE estado = 'A' AND cod_sucursal = $cod_sucursal AND cod_empresa = ".cod_empresa;
 		    $resp = Conexion::buscarRegistro($query);
 		    if($resp){
@@ -380,7 +380,8 @@ class cl_sucursales
 			 }
 		 }
 
-		public function getSucursalTiempoProgramar($cod_sucursal) {
+		public function getSucursalTiempoProgramar($cod_sucursal, $type) {
+		    $type = in_array(strtolower($type), ['delivery', 'd', 'envio']) ? "DELIVERY" : "PICKUP";
 			$query = "SELECT * 
 						FROM tb_sucursal_tiempo_programar
 						WHERE cod_sucursal = $cod_sucursal";
@@ -506,6 +507,25 @@ class cl_sucursales
 			if($resp) 
 				return $resp['envio_grava_iva'];
 			return 0;
+		}
+		
+		public function getAltaDemanda($cod_sucursal, $pfecha = ""){
+		    $fecha = ($pfecha === "") ? fecha() : $pfecha;
+		    $query = "SELECT * FROM tb_sucursal_alta_demanda
+					WHERE cod_sucursal = $cod_sucursal
+					AND fecha_inicio <= '$fecha' 
+					AND fecha_fin >= '$fecha'";
+			$row = Conexion::buscarRegistro($query);
+			if($row){
+			    if(cod_empresa ==141 || cod_empresa == 70){
+			        $row['texto'] = "Puede haber una ligera demora, gracias por tu paciencia codicioso.";
+			    }else{
+			        $row['texto'] = "Puede haber una ligera demora, gracias por tu paciencia.";
+			    }
+			}
+			
+			return $row;
+			
 		}
 }
 ?>

@@ -37,12 +37,27 @@ function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $getRuta
     ];
 }
 
-function getPrecioGacela($cod_sucursal, $latitud, $longitud){
+/* 
+    ! Deprecated 2025-09-16
+
+    function getPrecioGacela($cod_sucursal, $latitud, $longitud){
     require_once "clases/cl_gacela.php";
 	$ClGacela = new cl_gacela($cod_sucursal);
     $route = $ClGacela->costoCarrera($latitud, $longitud);
     if(isset($route->results->total)){
         return number_format($route->results->total, 2);
+    }else{
+        $error = isset($route->status) ? $route->status : "Courier no llega a este sector en esta hora";
+        throw new Exception($error);
+    }
+} */
+
+function getPrecioGacela($cod_sucursal, $latitud, $longitud){
+    require_once "clases/cl_gacela.php";
+	$ClGacela = new cl_gacela($cod_sucursal);
+    $route = $ClGacela->costoCarrera($latitud, $longitud);
+    if(isset($route->data->estimated_fare)){
+        return number_format($route->data->estimated_fare, 2);
     }else{
         $error = isset($route->status) ? $route->status : "Courier no llega a este sector en esta hora";
         throw new Exception($error);

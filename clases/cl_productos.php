@@ -111,6 +111,19 @@ class cl_productos
 		        return true;
 		    }
 		}
+		
+		public function getTiempoPreparacion($ids){
+		    if (empty($ids)) {
+                return 0;
+            }
+            
+		    $allIds = implode(",",$ids);
+		    $query = "SELECT MAX(tiempo_preparacion) as total_tiempo FROM tb_productos WHERE cod_producto IN ($allIds)";
+		    $resp = Conexion::buscarRegistro($query);
+		    return $resp && $resp['total_tiempo'] !== null
+                ? (int)$resp['total_tiempo']
+                : 0;
+		}
 
 		//LISTAS
 		public function lista(){
@@ -531,6 +544,10 @@ class cl_productos
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto_padre']);
         	else
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto']);
+        	    
+        	if(service_percentage > 0){
+        	    $producto['precio'] = number_format($producto['precio'] + ($producto['precio_no_tax'] * (service_percentage / 100)),2);
+        	}
         	return $producto;
         }
         
@@ -584,7 +601,24 @@ class cl_productos
         	if($infoAdicional){
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto']);
         	}
+        	
+        	if(service_percentage > 0){
+        	    $producto['precio'] = number_format($producto['precio'] + ($producto['precio_no_tax'] * (service_percentage / 100)),2);
+        	}
+        	
+        	$producto['empaque'] = $this->getEmpaque($producto['cod_producto']);
+        	
         	return $producto;
+        }
+        
+        public function getEmpaque($cod_producto){
+            $query = "SELECT * FROM tb_producto_empaque_detalle WHERE cod_producto = $cod_producto";
+            $resp = Conexion::buscarRegistro($query);
+            if($resp){
+                $alto = $resp['alto'];
+                $resp['alto'] = ($alto == intval($alto)) ? intval($alto) : $alto;
+            }
+            return $resp;
         }
         
         public function getArmaBowl($cod_producto){

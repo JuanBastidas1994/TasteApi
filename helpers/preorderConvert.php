@@ -40,6 +40,10 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider){
 	$Clordenes->porcentajeIva = $empresa['impuesto'];
 	$Clordenes->sucursal_grava_iva = $sucursales['envio_grava_iva'];
 	
+	//Ver si es una orden alta demanda
+	$altaDemanda = $Clsucursales->getAltaDemanda($cod_sucursal);
+	$ordenTrama['alta_demanda'] = ($altaDemanda) ? 1 : 0;
+	
 	$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
 	if ($Clordenes->crear($ordenTrama, $cod_usuario, $id)) {
 

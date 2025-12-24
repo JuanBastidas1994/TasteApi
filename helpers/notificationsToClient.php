@@ -13,6 +13,11 @@ function notifyNewOrder($order_id){
 	
 	//Enviar mensaje por whatsapp al administrador 
 // 	sendMessageWhatsapp($orden);
+
+    //204 es 400Grados
+    if(cod_empresa == 204 || cod_empresa == 70){
+        sendMessageWhatsappVideo($orden);
+    }
 	
 	//Enviar mensajes por telegram al administrador
 	sendMessageTelegram($orden);
@@ -37,6 +42,27 @@ function sendMessageWhatsapp($orden){
 	$texto = "*($cod_orden)* Ha ingresado un nuevo pedido *$tipo* a la sucursal *$sucursal* de *$$total* a nombre de *$nombre*. Entrega: $entrega ";
 	
 	$ClMessages->sendMessage(contact_manager, $text, 0);
+}
+
+function sendMessageWhatsappVideo($orden){
+    require_once "clases/cl_empresas.php";
+    $Clempresas = new cl_empresas();
+    
+    if(!$Clempresas->getPermiso('NOTIFY_WHATSAPP')) return false;
+    
+    $phone = $orden['telefono'];
+    if(strlen($phone) < 10) return false;
+    
+    require_once "clases/cl_ultramsg.php";
+	$ClMessages = new cl_ultramsg();
+	$ClMessages->setInstance('instance150737', 'br5wrz8e57z1t166');
+	
+	extract($orden);
+	$texto = "Gracias por apoyar a una empresa familiar 400 Grados. Estamos preparando tu pedido.";
+	
+	$url = "https://dashboard.mie-commerce.com/videos/entrante.mp4";
+	
+	$ClMessages->sendVideo($phone, $url, $texto, 0);
 }
 
 

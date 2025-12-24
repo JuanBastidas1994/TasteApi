@@ -11,12 +11,15 @@ class cl_paymentez {
     public function __construct($pcod_sucursal=0)
     {
         $tokens = $this->getTokens($pcod_sucursal);
-        $stg = $tokens['ambiente'];
-        $this->URL = ($stg == "production") ? 'https://ccapi.paymentez.com/v2/' : 'https://ccapi-stg.paymentez.com/v2/';
-        $this->SERVER_APPLICATION_CODE = $tokens['server_code'];
-        $this->SERVER_APP_KEY = $tokens['server_key'];
-
-        $this->paymentezApi = new HttpClient(['Content-Type: application/json']);
+        if($tokens){
+            
+            $stg = $tokens['ambiente'];
+            $this->URL = ($stg == "production") ? 'https://ccapi.paymentez.com/v2/' : 'https://ccapi-stg.paymentez.com/v2/';
+            $this->SERVER_APPLICATION_CODE = $tokens['server_code'];
+            $this->SERVER_APP_KEY = $tokens['server_key'];
+    
+            $this->paymentezApi = new HttpClient(['Content-Type: application/json']);
+        }
     }
 
     public function getTokens($cod_sucursal){

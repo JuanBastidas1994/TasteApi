@@ -28,6 +28,7 @@ $ClEmpresas = new cl_empresas();
 			if(is_numeric($cod_sucursal)){	//SOLO UNA SUCURSAL
 				$resp = $ClSucursales->get($cod_sucursal);
 				if($resp){
+				    $resp['alta_demanda'] = false;
 				    if($resp['abierto'] == false){  //Ver a que hora abre
             		    $resp['motivo_cierre'] = $ClSucursales->motivo_cierre;
             		    $resp['prox_status_enable'] = "Disponible ".$ClSucursales->proximaApertura($resp['cod_sucursal']);
@@ -38,10 +39,14 @@ $ClEmpresas = new cl_empresas();
             		    $resp['motivo_cierre'] = "";
             		    list($hora, $minuto, $segundo) = explode(':', $resp['hora_fin']);
             		    $resp['prox_status_enable'] = "Cierra hoy a las ".$hora.":".$minuto;
+            		    
+            		    //Si esta abierto consultar si esta en alta demanda.
+            		    $resp['alta_demanda'] = $ClSucursales->getAltaDemanda($resp['cod_sucursal']);
             		}
             		
+            		
 					$return['success'] = 1;
-					$return['mensaje'] = "Sucursal encontrada";
+					$return['mensaje'] = "Informacion de sucursal exitosa";
 					$return['data'] = $resp;
 				}else{
 					$return['success'] = 0;

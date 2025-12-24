@@ -47,6 +47,10 @@ function getConfiguracion($aplicacion = ""){
 		$info['promo_text'] = $empresa['promo_text'];
 		$info['social_networks'] = $ClEmpresas->getRedesSociales();
 		$info['save_card'] = $ClEmpresas->hasSaveCard();
+		$info['checkout_service'] = $empresa['service_percentage'] > 0 ? true : false;
+		$info['is_delivery'] = $empresa['is_delivery'];
+		$info['is_pickup'] = $empresa['is_pickup'];
+		$info['is_insitu'] = $empresa['is_insitu'];
 	}
 
 	$return['informacion'] = $info;

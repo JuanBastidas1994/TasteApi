@@ -66,6 +66,7 @@ if(verificateWs($empresa))
 	define('url_web',$empresa['url_web']);
 	define('api_key',$empresa['api_key']);
 	define('contact_manager',$empresa['telefono']);
+	define('service_percentage',$empresa['service_percentage']);
 	define('user_id',getUserHeader());
 
 	if($empresa['fidelizacion'] == 1)

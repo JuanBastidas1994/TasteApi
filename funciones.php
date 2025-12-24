@@ -173,8 +173,10 @@ function getNextHour() {
     $split = explode(":", $hora);
     $hou = 1;
     $min = ":00";
-    if($split[1] < 16) {
+    if($split[1] < 15) { //Si los minutos es menor que 15
         $hou = 0;
+        $min = ":30";
+    }else if($split[1] > 45){ //Si los minutos es menor que 15
         $min = ":30";
     }
     return ($split[0] + $hou) . $min;
@@ -525,26 +527,63 @@ function validarNombre($nombre){
 }
 
 function ValidarCedula($cedula){
-  if(strlen($cedula) != 10 && strlen($cedula) != 13){
-    return false;
+  $suma = 0;
+  $longitud = strlen($cedula);
+  $ultimoDigito = intval($cedula[$longitud - 1]);
+
+  for ($i = 0; $i < $longitud - 1; $i++) {
+      $digito = intval($cedula[$i]);
+      if ($i % 2 === 0) { // Posición impar
+          $digito *= 2;
+          if ($digito > 9) $digito -= 9;
+      }
+      $suma += $digito;
   }
-  $cad = substr($cedula, 0, 10);
-  $total = 0;
-  for($x=0; $x<strlen($cad)-1; $x++){
-      if($x%2 === 0){
-        $aux = intval($cad[$x]) * 2;
-        if($aux > 9)
-            $aux -= 9;
-        $total += $aux;
-      }else{
-        $total += intval($cad[$x]);
+
+  $verificador = (10 - ($suma % 10)) % 10;
+
+  return $verificador === $ultimoDigito;
+}
+
+function validarDocumentoEcuatoriano($numero) {
+  // Eliminar espacios en blanco
+  $numero = trim($numero);
+
+  // Verificar que solo contenga números y tenga 10 o 13 dígitos
+  if (!preg_match('/^\d{10,13}$/', $numero)) {
+      return false;
+  }
+
+  $provincia = intval(substr($numero, 0, 2));
+  if ($provincia < 1 || $provincia > 24) {
+      return false;
+  }
+
+  $tipo = strlen($numero); // 10 para cédula, 13 para RUC
+
+  // Validar cédula
+  if ($tipo === 10) {
+      return ValidarCedula($numero) ? "CEDULA" : false;
+  }
+
+  if($tipo === 13){
+      // Validar RUC natural (13 dígitos, termina en 001 y tercer dígito entre 0 y 5)
+      if (intval($numero[2]) >= 0 && intval($numero[2]) <= 5 && substr($numero, -3) === "001") {
+          return ValidarCedula(substr($numero, 0, 10)) ? "RUC_NATURAL" : false;
+      }
+  
+      // Validar RUC jurídico (13 dígitos, tercer dígito es 9 y termina en 001)
+      if (intval($numero[2]) === 9 && substr($numero, -3) === "001") {
+          return "RUC_JURIDICO";
+      }
+  
+      // Validar RUC público (13 dígitos, tercer dígito es 6 y termina en 001)
+      if (intval($numero[2]) === 6 && substr($numero, -3) === "001") {
+          return "RUC_PUBLICO";
       }
   }
-  $total = ($total % 10) ? 10 - ($total % 10) : 0;
-  if($cad[strlen($cad)-1] == $total)
-    return true;
-  else
-    return false;
+
+  return false;
 }
 
 function validar_ruc_juridico_ecuador($ruc) {
@@ -650,6 +689,25 @@ function sumarTiempo2($time, $cantidad, $tiempo){
   $mifecha->modify($cantidad.' '.$tiempo); 
   return $mifecha->format('H:i');
 }
+
+function sumarTiempoSeguro($hora, $minutos){
+    date_default_timezone_set('America/Guayaquil');
+
+    // Fecha ficticia solo para control de cruce de día
+    $fechaBase = '2000-01-01';
+
+    $inicio = new DateTime("$fechaBase $hora");
+    $fin = clone $inicio;
+    $fin->modify("+$minutos minutes");
+
+    // Si cruza al día siguiente, no es válido
+    if ($fin->format('Y-m-d') !== $inicio->format('Y-m-d')) {
+        return false;
+    }
+
+    return $fin->format('H:i');
+}
+
 
 function diffTime($datetime1, $datetime2) {
   $datetime1 = new DateTime($datetime1);

@@ -121,9 +121,9 @@ function validarOrdenCorrecta(){
 	$metodoEnvio["referencia"] = sinComillas($metodoEnvio["referencia"]);
 	$input['metodoEnvio'] = $metodoEnvio;
 	
-	foreach ($input["productos"] as &$pr) {
-		$pr["comentarios"] = sinComillas($pr["comentarios"]);
-	}
+// 	foreach ($input["productos"] as &$pr) {
+// 		$pr["comentarios"] = sinComillas($pr["comentarios"]);
+// 	}
 	$input["comentarios"] = sinComillas($input["comentarios"]);
 
 	/*USUARIO EXISTE*/
@@ -258,6 +258,7 @@ function validarOrdenCorrecta(){
 	/*FIN VERIFICAR MONTOS*/
 
 	/*PRODUCTOS*/
+	$num_items = 0;
 	require_once "clases/cl_productos.php";
 	$Clproductos = new cl_productos();
 	foreach ($productos as $item) {
@@ -271,6 +272,7 @@ function validarOrdenCorrecta(){
 				$return['errorCode'] = "PRODUCTO_AGOTADO";
 				showResponse($return);
 			}
+			$num_items += $item['cantidad'];
 		} else {
 			$return['success'] = 0;
 			$return['mensaje'] = "Producto con id $id no existe. Error COD_SUC: $cod_sucursal";
@@ -279,6 +281,17 @@ function validarOrdenCorrecta(){
 		}
 	}
 	/*PRODUCTOS*/
+	
+	/*CANTIDAD PARA 400Grados*/
+	if(cod_empresa == 204 || cod_empresa == 70){
+	    if(($num_items%2) !== 0){
+	        $return['success'] = 0;
+			$return['mensaje'] = "Los productos en el carrito deben ser pares para continuar";
+			$return['errorCode'] = "PAR_UNAVAILABLE";
+			showResponse($return);
+	    }
+	}
+	/*FIN CANTIDAD*/
 
 	/*SUCURSAL ABIERTA O DISPONIBLE*/
 	require_once "clases/cl_sucursales.php";
@@ -306,13 +319,15 @@ function validarOrdenCorrecta(){
 
 	$resp = $ClSucursales->get($cod_sucursal);
 	if ($resp) {
-		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
-		if (!$disponibilidad) {
-			$return['success'] = 0;
-			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
-			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
-			showResponse($return);
-		}
+	    if(cod_empresa != 204 && cod_empresa != 70){ //Para 400 grados no debe validar si esta abierto o cerrado
+    		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
+    		if (!$disponibilidad) {
+    			$return['success'] = 0;
+    			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
+    			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
+    			showResponse($return);
+    		}
+	    }
 	} else {
 		$return['success'] = 0;
 		$return['mensaje'] = "Sucursal no existente";
@@ -335,6 +350,7 @@ function validarOrdenCorrecta(){
 	$input['subtotal'] = $cart['subtotal'];
 	$input['total'] = $cart['total'];
 	$input['tax'] = $cart['percentIva'];
+	$input['service'] = $cart['service'];
 	
 	foreach($productos as $key => $producto){
 	    $productCart = findProductInCartByTime($cart['productos'], $producto['time']);
@@ -377,14 +393,24 @@ function validarOrdenCorrecta(){
 	
 	$return['success'] = 1;
 	$return['mensaje'] = "Orden Lista para ejecutarse";
+	$return['trama'] = $input;
+	//JUAN
+	logAdd(json_encode($input, JSON_UNESCAPED_UNICODE),"ejecutado","preordenconvertidajc");
+	
 	
 	$total = 0;
 	$subtotal = 0;
 	$iva = 0;
+	$service = 0;
 	if($tarjetaAmount > 0){
-    	$total = number_format($tarjetaAmount, 2);
+	    $total = number_format($tarjetaAmount, 2);
+	    $service = number_format($cart['service'], 2);
+	    if($service > 0){
+	        $tarjetaAmount = $tarjetaAmount - $service;
+	    }
+    	
     	$subtotal = number_format($tarjetaAmount / (($cart['percentIva'] / 100) + 1),2);
-    	$iva = number_format($total - $subtotal,2);
+    	$iva = number_format($tarjetaAmount - $subtotal,2);
 	}
 	
 	$return['data'] = [
@@ -393,7 +419,8 @@ function validarOrdenCorrecta(){
 	    'total' => floatval($total),
 	    'subtotal' => floatval($subtotal),
 	    'iva' => floatval($iva),
-	    'iva_porcentaje' => intval($cart['percentIva'])
+	    'iva_porcentaje' => intval($cart['percentIva']),
+	    'servicio' => floatval($service)
 	];
 	$return['trama'] = $input;
 	showResponse($return);

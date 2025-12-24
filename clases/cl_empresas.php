@@ -119,13 +119,19 @@ class cl_empresas
 		        return 1;
 		}
 		
-		public function getFormasPagoEmpresa($tipoEnvio = "", $hideCard = false, $saveCard = false, $imgTransfer="") {
+		public function getFormasPagoEmpresa($tipoEnvio = "", $hideCard = false, $saveCard = false, $imgTransfer="", $office_id = 0) {
 			$cod_empresa = cod_empresa;
 			$filtro = "";
 			$filtro = ($tipoEnvio == "envio") ? " AND efp.is_delivery = 1 " : " AND efp.is_pickup = 1 ";
 			
 			if($hideCard)
 			    $filtro .= " AND fp.cod_forma_pago NOT IN('T') ";
+			if($office_id == 345){ //thesmartroll la marquesa
+			    $filtro .= " AND fp.cod_forma_pago NOT IN('TB') ";
+			}
+			if($office_id == 324){ //Rollit quito
+			    $filtro .= " AND fp.cod_forma_pago NOT IN('E') ";
+			}
 			
             $query = "SELECT efp.cod_forma_pago, efp.descripcion, efp.nombre, efp.is_delivery, efp.is_pickup
                         FROM tb_empresa_forma_pago efp, tb_formas_pago fp

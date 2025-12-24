@@ -789,7 +789,7 @@ function saveDatosFacturacion() {
 	global $input;
 	extract($input);
 
-	$datosObligatorios = array("cod_usuario", "nombre", "telefono", "correo", "num_documento", "direccion", "tipo_documento");
+	$datosObligatorios = array("cod_usuario", "nombre", "telefono", "correo", "num_documento", "direccion");
 	foreach ($datosObligatorios as $key => $value) {
 		if (!array_key_exists($value, $input)) {
 			$return['success'] = 0;
@@ -797,49 +797,15 @@ function saveDatosFacturacion() {
 			return $return;
 		}	
 	}
-
-		// VALIDAR NUM DOCUMENTO
-		if($esExtranjero == 0) {
-			if($tipo_documento == "DNI") {
-				if(strlen(trim($num_documento)) <> 10) {
-					$return['success'] = 0;
-					$return['mensaje'] = "Formato de cédula es inválido";
-					return $return;
-				}
-		
-				if(!ValidarCedula(trim($num_documento))) {
-					$return['success'] = 0;
-					$return['mensaje'] = "Número de cédula es inválido";
-					return $return;
-				}
-			}
-			else if($tipo_documento == "RUCN") {
-				if(strlen(trim($num_documento)) <> 13) {
-					$return['success'] = 0;
-					$return['mensaje'] = "Formato de RUC natural es inválido";
-					return $return;
-				}
-		
-				if(!ValidarCedula(trim($num_documento))) {
-					$return['success'] = 0;
-					$return['mensaje'] = "Número de RUC natural es inválido";
-					return $return;
-				}
-			}
-			else if($tipo_documento == "RUCJ") {
-				if(strlen(trim($num_documento)) <> 13) {
-					$return['success'] = 0;
-					$return['mensaje'] = "Formato de RUC jurídico es inválido";
-					return $return;
-				}
-		
-				if(!validar_ruc_juridico_ecuador(trim($num_documento))) { 
-					$return['success'] = 0;
-					$return['mensaje'] = "Número de RUC jurídico es inválido";
-					return $return;
-				}
-			}
-		}
+	
+	$esExtranjero = 0;
+	$tipo_documento = validarDocumentoEcuatoriano($num_documento);
+	if(!$tipo_documento){
+        return [
+            'success' => 0,
+            'mensaje' => 'El documento ingresado es incorrecto'
+        ];
+    }
 	
 	$Clusuarios->cod_usuario = $cod_usuario;
 	$Clusuarios->nombre = str_replace("'", "", trim($nombre));

@@ -4,15 +4,18 @@ class cl_carrito
 {
     public $cod_usuario;
     public $quitarCupon = false, $motivoCupon = "", $infoCupon = null;
-    public $productos = null, $subtotal, $iva, $total, $descuento = 0, $descuento_no_tax, $envio = 0;
+    public $productos = null, $subtotal, $iva, $total, $service = 0, $descuento = 0, $descuento_no_tax, $envio = 0;
     public $base0 = 0, $base12 = 0, $desxitem = 0;
-    public $num_items;
+    public $num_items = 0;
+    public $tiempo_preparacion = 0;
     public $tipo_descuento = 0; //0 PORCENTAJE - 1 EFECTIVO
     public $valor_descuento = 0; //VALOR A DESCONTAR
     public $metodoEnvio = null, $metodoPago = null, $infoDescuento = null, $promo_envio=null;
     public $percentIva = 15;
     public $DivitIva = 1.15;
+    public $service_percentage = 0;
     public $numDecimals = 2;
+    public $observacion = "";
 
     public $promociones = [], $promocionesResp = [];
     public $descuentoAux = 0;
@@ -28,19 +31,18 @@ class cl_carrito
 
     public function __construct($array, $cod_sucursal)
     {
-        $this->percentIva = $this->getPercentIva();
-        $this->DivitIva = 1 + ($this->percentIva / 100);
+        $this->getBusinessData();
         $this->calcular($array, $cod_sucursal);
     }
-
-    public function getPercentIva()
-    {
-        $query = "SELECT impuesto FROM tb_empresas WHERE cod_empresa = " . cod_empresa;
+    
+    public function getBusinessData(){
+        $query = "SELECT impuesto, service_percentage FROM tb_empresas WHERE cod_empresa = " . cod_empresa;
         $resp = Conexion::buscarRegistro($query);
-        if ($resp)
-            return $resp['impuesto'];
-        else
-            return 15;
+        if ($resp){
+            $this->service_percentage = $resp['service_percentage'];
+            $this->percentIva = $resp['impuesto'];
+            $this->DivitIva = 1 + ($this->percentIva / 100);
+        }
     }
 
     public function calcular($array, $cod_sucursal)
@@ -59,6 +61,7 @@ class cl_carrito
         $descuento_no_tax = 0;
         $adicionalTotal = 0;
         $totalOrderWithTax = 0;
+        $tiempo_preparacion = 0;
         $items = [];
 
         $desxitem = 0;
@@ -214,6 +217,9 @@ class cl_carrito
             }
         }
         //FIN DESCUENTO
+        
+        $idsProductosDisponibles = [];
+        $productosNoDisponibles = 0;
 
         //Calcular Desglose
         $base0 = 0;
@@ -238,21 +244,44 @@ class cl_carrito
                         $items[$k]['subtotal12'] = $this->noRound(0, false,2);
                     }
                     $num_items = $num_items + $producto['cantidad'];
+                    $idsProductosDisponibles[] = $producto['cod_producto'];
                     $totalOrderWithoutDiscount = $totalOrderWithoutDiscount + $producto['total_no_discount'];
                     $totalOrderWithTax += $producto['total'];
                 } else {
                     $items[$k]['total'] = 0;
+                    $productosNoDisponibles++;
                 }
             }
         }
         
-        $this->logs[0] = [ 'base0' => $base0 ];
+        $this->logs[] = [ 'productosDisponibles' => $idsProductosDisponibles ];
+        if(count($idsProductosDisponibles)>0){
+            $tiempo_preparacion = $Clproductos->getTiempoPreparacion($idsProductosDisponibles);
+            $this->logs[] = [ 'tiempo_preparacion' => $tiempo_preparacion ];
+        }
+        
+        //OBSERVACIONES
+        $observacion = "";
+        if($productosNoDisponibles > 0){
+            $observacion = "1 o más productos están agotados";
+        }else if($num_items == 0){
+            $observacion = "No hay productos en el carrito";
+        }
+        else if($num_items > 0){
+            if(cod_empresa == 204 || cod_empresa == 70){ //400 GRADOS
+                if(($num_items%2) !== 0){
+                    $observacion = "Los productos en el carrito deben ser par, agrega otro para continuar";
+                }
+            }
+        }
+        
+        $this->logs[] = [ 'base0' => $base0 ];
         if($this->officeTaxable)
             $base12 += $this->noRound($adicionalTotal, false, 2);
         else
             $base0 += $this->noRound($adicionalTotal, false, 2);
         
-        $this->logs[1] = [ 'base0' => $base0 ];
+        $this->logs[] = [ 'base0' => $base0 ];
         
         $promoEnvio = null;
         //Calcular Envio
@@ -281,14 +310,21 @@ class cl_carrito
         else
             $base0 = $base0 + $envio;
             
-        $this->logs[2] = [ 'base0' => $base0 ];
+        $this->logs[] = [ 'base0' => $base0 ];
 
         
         $subtotal = $base0 + $base12;
         $iva = $this->noRound($base12 * ($this->percentIva / 100), false, 2);
         
         $subtotal_without_envio = $totalOrderWithoutDiscount;
-        $total = $base0 + $base12 + $iva; //BASE 12 CON IVA 
+        
+        //Porcentaje servicio solo a productos
+        $service = 0;
+        if($this->service_percentage > 0){
+            $service = $this->noRound(($subtotal - $envio) * ($this->service_percentage / 100),2);
+        }
+        
+        $total = $base0 + $base12 + $iva + $service;
 
 
         $this->quitarCupon = $quitarCupon;
@@ -306,8 +342,11 @@ class cl_carrito
         $this->descuento = $this->noRound($descuento, false, 2);
         $this->descuento_no_tax = $this->noRound($descuento_no_tax, false, 2);
         $this->iva = $this->noRound($iva, false, 2);
+        $this->service = $this->noRound($service, false, 2);
         $this->total = $this->noRound($total, false, 2);
         $this->num_items = $num_items;
+        $this->tiempo_preparacion = $tiempo_preparacion;
+        $this->observacion = $observacion;
     }
 
     public function getArray()
@@ -325,12 +364,15 @@ class cl_carrito
         $car['descuento'] = $this->descuento;
         $car['descuento_no_tax'] = $this->descuento_no_tax;
         $car['iva'] = $this->iva;
+        $car['service'] = $this->service;
         $car['total'] = $this->total;
         $car['num_items'] = $this->num_items;
+        $car['tiempo_preparacion'] = $this->tiempo_preparacion;
         $car['promociones'] = $this->promocionesResp;
         $car['promocionesPruebas'] = $this->promociones;
         $car['quitarCupon'] = $this->quitarCupon;
         $car['motivoCupon'] = $this->motivoCupon;
+        $car['observacion'] = $this->observacion;
         
         $car['percentIva'] = $this->percentIva;
         $car['DivitIva'] = $this->DivitIva;
