@@ -1,0 +1,27 @@
+RewriteEngine On
+
+RewriteCond %{SCRIPT_FILENAME} !-d  
+RewriteCond %{SCRIPT_FILENAME} !-f 
+
+#SIN PARAMETROS
+RewriteRule ^(.*)$ index.php/$1 [L]
+
+#CON 1 PARAMETRO
+#RewriteRule ^socios/([a-zA-Z0-9_-]+)$ index.php?id=$1
+
+#OCULTAR LISTA DE DIRECTORIOS
+Options All -Indexes
+ErrorDocument 404 ./path/mi404.php
+ErrorDocument 403 ./path/mi403.php
+ErrorDocument 500 ./path/mi500.php
+
+#IMPEDIR CUALQUIER ACCESO EXCEPTO
+#Order deny, allow
+#Deny from All
+#Allow from xxx.xxx.xxx.xxx
+
+#PERMITIR ACCESO A TODOS EXCEPTO
+#Order deny, allow
+#Allow from All
+#Deny from xxx.xxx.xxx.xxx
+#Deny from xxx.xxx.xxx.yyy
