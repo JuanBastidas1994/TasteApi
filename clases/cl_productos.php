@@ -467,8 +467,9 @@ class cl_productos
 			return $row;	
 		}
 
-		public function isPromocion($cod_producto, $cod_sucursal)
+		public function isPromocion($cod_producto)
 		{
+			$cod_sucursal = $this->cod_sucursal;
 			$fecha = date('Y-m-d H:i:s');
 			$hora  = date('H:i:s');
 			$dia   = date('N'); // 1 = lunes ... 7 = domingo
