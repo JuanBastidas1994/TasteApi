@@ -472,7 +472,17 @@ class cl_productos
 			$cod_sucursal = $this->cod_sucursal;
 			$fecha = date('Y-m-d H:i:s');
 			$hora  = date('H:i:s');
-			$dia   = date('N'); // 1 = lunes ... 7 = domingo
+			$diaNumero   = date('N'); // 1 = lunes ... 7 = domingo
+			$dias = [
+				1 => 'lunes',
+				2 => 'martes',
+				3 => 'miercoles',
+				4 => 'jueves',
+				5 => 'viernes',
+				6 => 'sabado',
+				7 => 'domingo'
+			];
+			$dia  = $dias[$diaNumero];
 
 			$query = "
 				SELECT 
