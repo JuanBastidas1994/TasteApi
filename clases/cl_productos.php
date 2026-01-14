@@ -453,7 +453,7 @@ class cl_productos
 
 
 		/*PROMOCIONES*/
-		public function isPromocion($cod_producto){
+		public function isPromocionOld($cod_producto){
 			$cod_sucursal = $this->cod_sucursal;
 			$fecha = fecha();
 			$query = "SELECT * 
@@ -465,6 +465,60 @@ class cl_productos
 					AND pd.estado = 'A'";
 			$row = Conexion::buscarRegistro($query);	
 			return $row;	
+		}
+
+		public function isPromocion($cod_producto, $cod_sucursal)
+		{
+			$fecha = date('Y-m-d H:i:s');
+			$hora  = date('H:i:s');
+			$dia   = date('N'); // 1 = lunes ... 7 = domingo
+
+			$query = "
+				SELECT 
+					p.cod_promocion,
+					p.descripcion,
+					p.is_porcentaje,
+					p.valor,
+					p.texto
+				FROM promociones p
+				INNER JOIN promocion_producto pp 
+					ON p.cod_promocion = pp.cod_promocion
+				INNER JOIN promocion_sucursal ps 
+					ON p.cod_promocion = ps.cod_promocion
+				WHERE
+					pp.cod_producto = :cod_producto
+					AND ps.cod_sucursal = :cod_sucursal
+					AND p.cod_empresa = :cod_empresa
+					AND p.fecha_inicio <= :fecha
+					AND p.fecha_fin >= :fecha
+					AND (
+						NOT EXISTS (
+							SELECT 1
+							FROM promocion_recurrente pr2
+							WHERE pr2.cod_promocion = p.cod_promocion
+						)
+						OR
+						EXISTS (
+							SELECT 1
+							FROM promocion_recurrente pr
+							WHERE pr.cod_promocion = p.cod_promocion
+							AND pr.dia_semana = :dia
+							AND :hora BETWEEN pr.hora_inicio AND pr.hora_fin
+						)
+					)
+				LIMIT 1
+			";
+
+			$params = [
+				':cod_producto' => $cod_producto,
+				':cod_sucursal' => $cod_sucursal,
+				':cod_empresa'  => cod_empresa,
+				':fecha'        => $fecha,
+				':hora'         => $hora,
+				':dia'          => $dia
+			];
+
+			return Conexion::buscarRegistro($query, $params);
 		}
 		
 		private function sucursalGravaIva($cod_sucursal) {
