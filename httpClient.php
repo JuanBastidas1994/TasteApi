@@ -33,7 +33,7 @@ class HttpClient {
         if ($data) {
             if ($isJson) {
                 $data = json_encode($data);
-                file_put_contents('HTTPCLIENT.log', PHP_EOL . $data, FILE_APPEND);
+                file_put_contents('logs/HTTPCLIENT.log', PHP_EOL . $data, FILE_APPEND);
                 $headers[] = 'Content-Type: application/json';
             } else {
                 $data = http_build_query($data);

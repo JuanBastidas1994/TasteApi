@@ -207,6 +207,7 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
         
 		$addTime = true;
 		$hora_ini = $disponibilidad['hora_ini'];
+        $hora_fin = $disponibilidad['hora_fin'];
 		if($isCurrentDay) {
 			$hi = hora_create($hora_ini);
 			$hc = hora();
@@ -221,9 +222,10 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
                     return [];
 			}
 		}
+        // $hora_fin = sumarTiempoSeguro($disponibilidad['hora_fin'], $minutes);
         
         $horas = [];
-        $intervalos = getListaHoraIntervalos($hora_ini, $disponibilidad['hora_fin'], $minutes, $cod_sucursal, $addTime, $type);
+        $intervalos = getListaHoraIntervalos($hora_ini, $hora_fin, $minutes, $cod_sucursal, $addTime, $type);
 		foreach ($intervalos as $intervalo) {
 		    $hora = $intervalo->format('H:i');
 		    
@@ -251,6 +253,7 @@ function getListaHoraIntervalos($hora_inicio, $hora_fin, $intervalo, $cod_sucurs
 
   $start = new DateTime($hora_inicio);
   $end   = new DateTime($hora_fin);
+  $end->modify('+1 second');
   $interval = DateInterval::createFromDateString($intervalo.' minute');
   $period = new DatePeriod($start, $interval, $end);
   return $period;

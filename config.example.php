@@ -8,8 +8,6 @@ define('contrasena','admin2014');
 
 //FUNCIONALIDAD DEL SISTEMA
 define('api_version','v2');
-define('name_session','ADMIN_FEED_CREW');
-define('DURACION_SESION','7200'); //2 horas
 define('url_resource','https://dashboard.mie-commerce.com/assets/resource/api/');
 // define('url_sistema','https://dashboard.mie-commerce.com/');
 define('url_sistema','https://digitalmindtec.com/');

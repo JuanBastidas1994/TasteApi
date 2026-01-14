@@ -8,7 +8,7 @@ $Clusuarios = new cl_usuarios();
 $Clempresas = new cl_empresas();
 $Clsucursales = new cl_sucursales();
 
-function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider){
+function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$total=0){
     global $Clordenes;
     global $Clusuarios;
     global $Clempresas;

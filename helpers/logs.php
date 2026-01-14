@@ -79,7 +79,7 @@ function logGoogleMaps($lat1, $lon1, $lat2, $lon2, $distancia, $precio, $dirFile
     $string .= "Google Maps: $googleMapsLink" . PHP_EOL;
     $string .= str_repeat('-', 40) . PHP_EOL;
 
-    file_put_contents($logFolder."/".$dirFile, $string, FILE_APPEND);
+    file_put_contents("logs/".$dirFile, $string, FILE_APPEND);
 }
 
 ?>

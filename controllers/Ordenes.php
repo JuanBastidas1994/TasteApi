@@ -528,8 +528,9 @@ function convertirPreorden(){
     		];
     	 }
 
+		$total = 0;
 		require_once "helpers/preorderConvert.php";
-	    $id = storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider);
+	    $id = storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, $total);
 	    
 	    require_once "helpers/notificationsToClient.php";
 		notifyNewOrder($id);
@@ -540,7 +541,9 @@ function convertirPreorden(){
 		    'success' => 1,
 		    'id' => $id,
 		    'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
-		    'detalle' => 'Orden creada correctamente'
+		    'detalle' => 'Orden creada correctamente',
+			'preorden' => $preorden,
+			'total' => $total
 		];
 	}catch (Exception $e) {
 		showResponse(['success' => 0, 'mensaje' => $e->getMessage()]);
@@ -742,11 +745,17 @@ function convertirPreordenToken(){
 		extract($resp);
 		
 		if($transaction['status'] == 'success'){
+			$total = 0;
 			require_once "helpers/preorderConvert.php";
-			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2);
+			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2, $total);
 			require_once "helpers/notificationsToClient.php";
 			notifyNewOrder($id);
-			return [ 'success' => 1, 'id' => $id, 'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', ];
+			return [ 
+				'success' => 1, 
+				'id' => $id, 
+				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', 
+				'total' => $total
+			];
 		}else if($transaction['status'] == 'pending'){
 			if($transaction['status_detail'] == 35 || $transaction['status_detail'] == 36){ //Se requiere desafío
 			    if(!isset($resp['3ds'])) throw new Exception('No es una orden 3DS');
@@ -831,11 +840,17 @@ function verifyTransaction(){
 		extract($resp);
 		
 		if($transaction['status'] == 'success'){
+			$total = 0;
 			require_once "helpers/preorderConvert.php";
-			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2);
+			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2, $total);
 			require_once "helpers/notificationsToClient.php";
 			notifyNewOrder($id);
-			return [ 'success' => 1, 'id' => $id, 'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', ];
+			return [ 
+				'success' => 1, 
+				'id' => $id, 
+				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', 
+				'total' => $total
+			];
 		}else if($transaction['status'] == 'pending'){
 			if($transaction['status_detail'] == 35 || $transaction['status_detail'] == 36){ //Se requiere desafío
 			    if(!isset($resp['3ds'])) throw new Exception('No es una orden 3DS');
