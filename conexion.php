@@ -30,15 +30,15 @@ class Conexion {
         return self::$conexion;
     }
 
-    public static function buscarRegistro($sql) {
+    public static function buscarRegistro($sql, $data = null) {
         /* retorna los datos de un refistro en un array de una dimensi贸n */
         try {
             $con = self::obtenerConexion();
             $rs = $con->prepare($sql);
-            $rs->execute();
+            $rs->execute($data);
             return $rs->fetch(PDO::FETCH_ASSOC);
         } catch (Exception $ex) {
-            echo "Error: " . $ex->getMessage();
+            echo "Error al nivel de Database ".$sql.'<br/>';
         }
     }
     
