@@ -19,8 +19,6 @@ $Clempresas = new cl_empresas(NULL);
 $Clgiftcards = new cl_giftcards(NULL);
 $Clsucursales = new cl_sucursales(NULL);
 
-$session = getSession();
-
 if(isset($_GET['codigo']) && isset($_GET['id'])){
     $codigo = $_GET['codigo'];
     $cod_empresa = $_GET['id'];

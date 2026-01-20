@@ -492,7 +492,8 @@ class cl_productos
 					p.valor,
 					p.texto,
 					p.fecha_inicio,
-					p.fecha_fin
+					p.fecha_fin,
+					p.cantidad
 				FROM promociones p
 				INNER JOIN promocion_producto pp 
 					ON p.cod_promocion = pp.cod_promocion

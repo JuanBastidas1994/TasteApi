@@ -57,8 +57,8 @@ class cl_usuarios
 	}
 
 	public function registro(&$id){
-		$query = "INSERT INTO tb_usuarios(cod_empresa, cod_rol, nombre, apellido, telefono, correo, usuario, password, fecha_nacimiento, estado, num_documento)";
-		$query.= "VALUES($this->cod_empresa, $this->cod_rol, '$this->nombre', '$this->apellido', '$this->telefono', '$this->correo', '$this->correo', MD5('$this->password'), '$this->fecha_nacimiento','A','$this->num_documento')";
+		$query = "INSERT INTO tb_usuarios(cod_empresa, cod_rol, nombre, apellido, telefono, correo, usuario, password, estado, num_documento)";
+		$query.= "VALUES($this->cod_empresa, $this->cod_rol, '$this->nombre', '$this->apellido', '$this->telefono', '$this->correo', '$this->correo', MD5('$this->password'), 'A','$this->num_documento')";
 		$resp = Conexion::ejecutar($query,NULL);
 		if($resp)
 			$id = Conexion::lastId();

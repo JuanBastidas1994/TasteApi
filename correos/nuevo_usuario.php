@@ -10,7 +10,6 @@ require_once "../funciones.php";
 require_once "../clases/cl_empresas.php";
 
 $cl_empresas = new cl_empresas(NULL);
-$session = getSession();
 
 if(isset($_GET['id']) && isset($_GET['pass'])){
   $id = $_GET['id'];
