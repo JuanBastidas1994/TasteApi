@@ -148,22 +148,47 @@ function productosBasico($cod_sucursal = 0){
 	}
 	global $Clcategorias;
 	global $Clproductos;
-    $respCategorias = null;
-    $x=0;
+    
     
 	$Clproductos->cod_sucursal = $cod_sucursal;
 	$categorias = $Clcategorias->listaBasica();
+
+	$respCategorias = [];
+	$productosPromo = [];
+    $x=0;
+
 	foreach ($categorias as $key => $categoria) {
-	    $categorias[$key]['productos'] = $Clproductos->listaBasicaByCategoria($categoria['cod_categoria']);
-	    if(count($categorias[$key]['productos'])>0){
-		    $respCategorias[$x] = $categorias[$key]; 
-		    $x++;
-	    }
+		$productos = $Clproductos->listaBasicaByCategoria($categoria['cod_categoria']);
+
+        if (count($productos) > 0) {
+			//Productos con promoción
+			foreach ($productos as $producto) {
+                if (!empty($producto['promocion'])) {
+                    $productosPromo[] = $producto;
+                }
+            }
+			$categoria['productos'] = $productos;
+			$respCategorias[$x] = $categoria;
+			$x++;
+		}
 	}
 
-	$return['success'] = 1;
-	$return['mensaje'] = "Lista de productos con informacion basica";
-	$return['data'] = $respCategorias;
-	return $return;
+	if (count($productosPromo) > 0) {
+        $categoriaPromo = [
+            'cod_categoria' => 'PROMO',
+            'alias'          => 'promociones',
+            'categoria'      => 'Promociones',
+            'image_min'      => '',
+            'image_max'      => '',
+            'productos'      => $productosPromo
+        ];
+        array_unshift($respCategorias, $categoriaPromo); // Insertar al inicio
+    }
+
+	return [
+        'success' => 1,
+        'mensaje' => 'Lista de productos con informacion basica',
+        'data'    => $respCategorias
+    ];
 }
 ?>

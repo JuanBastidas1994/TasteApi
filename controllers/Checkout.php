@@ -99,6 +99,9 @@ function getInfoCheckout(){
     //PEDIDO EXPRESS
     $deliveryTextTitle = "Entregar lo antes posible";
     $deliveryText = "Enviaremos el pedido lo más pronto posible";
+    $deliveryTextObservation = ($preparation_time > 0) 
+                                ? "Tu pedido demorará $preparation_time minutos en su preparación antes del salir del local" 
+                                : '';
     $pedido_express = false;
     if(cod_empresa == 204 || cod_empresa == 70){
         $pedido_express = [
@@ -117,6 +120,7 @@ function getInfoCheckout(){
     }
     $office['delivery_text_title'] = $deliveryTextTitle;
     $office['delivery_text'] = $deliveryText;
+    $office['delivery_text_observation'] = $deliveryTextObservation;
     $office['pedido_express'] = $pedido_express;
     
     

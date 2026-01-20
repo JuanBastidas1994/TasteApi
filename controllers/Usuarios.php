@@ -322,7 +322,6 @@ function registroExpress(){
 	    $Clusuarios->password = "N0P4ss";
 	    $Clusuarios->apellido = '';
 	    $Clusuarios->telefono = '';
-	    $Clusuarios->fecha_nacimiento = "";
         
         $cod_usuario = 0;
 	    if($Clusuarios->registro($cod_usuario)){
@@ -407,7 +406,6 @@ function login_google(){
 		$Clusuarios->correo = $correo;
 	    $Clusuarios->usuario = $correo;
 	    $Clusuarios->password = "N0P4ss";
-	    $Clusuarios->fecha_nacimiento = "";
 	    $Clusuarios->num_documento = "";
         
         $cod_usuario = 0;

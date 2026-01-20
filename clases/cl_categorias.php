@@ -9,7 +9,6 @@ class cl_categorias
 		{
 			if($pcod_categoria != null)
 				$this->cod_categoria = $pcod_categoria;
-			$this->session = getSession();
 		}
 
 		public function lista($end = 100){

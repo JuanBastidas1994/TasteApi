@@ -298,30 +298,6 @@ function getYear()
      return $data[count($data)-1];
  }
  
-/*START FUNCIONES DE SESSION*/
-function isLogin()
-{
-  if(isset($_SESSION[name_session]))
-  {
-    if($_SESSION[name_session]!= NULL)
-      return true;
-    else
-      return false;
-  }
-  else
-    return false; 
-}
-
-function getSession(){
-  if(!isset($_SESSION[name_session]))
-    return null;
-  return $_SESSION[name_session];
-}
-
-function setSession($data){
-  $_SESSION[name_session] = $data;
-}
-/*END FUNCIONES DE SESSION*/
  
  function create_slug($string){
     $slug = preg_replace('/[^A-Za-z0-9-]+/','-',$string);

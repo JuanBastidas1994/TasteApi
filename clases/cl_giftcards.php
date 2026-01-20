@@ -9,7 +9,6 @@ class cl_giftcards
 	{
 		if($pcod_producto != null)
 			$this->cod_producto = $pcod_producto;
-		$this->session = getSession();
 	}
 	
 	public function lista(){
