@@ -184,7 +184,7 @@ function getCategorias($cod_sucursal){
 }
 
 function getBanners(){
-    $query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion
+    $query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion, ubicacion
 			FROM tb_banner 
 			WHERE estado IN('A') AND cod_empresa = ".cod_empresa." ORDER BY posicion ASC LIMIT 0,5";
 	$resp = Conexion::buscarVariosRegistro($query);
@@ -207,7 +207,7 @@ function infoCategorias(){
 }
 
 function lstBanners(){
-	$query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion
+	$query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion, ubicacion
 			FROM tb_banner 
 			WHERE estado IN('A') AND cod_empresa = ".cod_empresa." ORDER BY posicion ASC LIMIT 0,5";
 	$resp = Conexion::buscarVariosRegistro($query);

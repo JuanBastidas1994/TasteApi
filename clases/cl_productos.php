@@ -571,37 +571,38 @@ class cl_productos
 			}
 			
 			$cantidadPromo = 0;
-        	$promocion = $this->isPromocion($producto['cod_producto']);
-        	if($promocion){
-        		$precio = number_format($producto['precio'],2);
-				$texto = $promocion['texto'];
-				$producto['promocion'] = $texto;
-        		if($promocion['is_porcentaje']==1){
-        			$producto['precio_anterior'] = $precio;
-        			$valor = $promocion['valor'];
-        
-        			$descuento = $precio * ($valor/100);
-        			$precio = $precio - $descuento;
-        			$precio = number_format($precio, 2);
-        
-        			$producto['precio'] = $precio;
-        			$producto['nxm'] = false;
-        		}else{
-        			$producto['nxm'] = true;
-        			if($texto == '2x1')
-						$cantidadPromo = 2;
-					else if($texto == '3x2')
-						$cantidadPromo = 3;
-					else if($texto == '4x3')
-						$cantidadPromo = 4;
-					else if($texto == '5x4')
-						$cantidadPromo = 5;
-        		}
-        		$producto['promo_fin'] = $promocion['fecha_fin'];
-        	}else{
-        		$producto['promocion'] = "";
-        		$producto['nxm'] = false;
-        	}
+			$producto['promocion'] = "";
+        	$producto['nxm'] = false;
+			if($producto['disponible'] == true){
+				$promocion = $this->isPromocion($producto['cod_producto']);
+				if($promocion){
+					$precio = number_format($producto['precio'],2);
+					$texto = $promocion['texto'];
+					$producto['promocion'] = $texto;
+					if($promocion['is_porcentaje']==1){
+						$producto['precio_anterior'] = $precio;
+						$valor = $promocion['valor'];
+			
+						$descuento = $precio * ($valor/100);
+						$precio = $precio - $descuento;
+						$precio = number_format($precio, 2);
+			
+						$producto['precio'] = $precio;
+						$producto['nxm'] = false;
+					}else{
+						$producto['nxm'] = true;
+						if($texto == '2x1')
+							$cantidadPromo = 2;
+						else if($texto == '3x2')
+							$cantidadPromo = 3;
+						else if($texto == '4x3')
+							$cantidadPromo = 4;
+						else if($texto == '5x4')
+							$cantidadPromo = 5;
+					}
+					$producto['promo_fin'] = $promocion['fecha_fin'];
+				}
+			}
 			$producto['cantidadPromo'] = $cantidadPromo;
         	
         	$variantes = $this->listaVariantes($producto['cod_producto']);
@@ -641,44 +642,45 @@ class cl_productos
 			}
 			
 			$cantidadPromo = 0;
-        	$promocion = $this->isPromocion($producto['cod_producto']);
-        	if($promocion){
-        		$precio = number_format($producto['precio'],2);
-				$texto = $promocion['texto'];
-				$producto['promocion'] = $texto;
-
-        		if($promocion['is_porcentaje']==1){
-        			$producto['precio_anterior'] = $precio;
-        			$valor = $promocion['valor'];
-
-        			$descuento = $precio * ($valor/100);
-        			$precio = $precio - $descuento;
-        			$precio = number_format($precio, 2);
-        
-        			$producto['precio'] = $precio;
-        			$producto['nxm'] = false;
-        		}else{
-        			$producto['nxm'] = true;
-					if($texto == '2x1')
-						$cantidadPromo = 2;
-					else if($texto == '3x2')
-						$cantidadPromo = 3;
-					else if($texto == '4x3')
-						$cantidadPromo = 4;
-					else if($texto == '5x4')
-						$cantidadPromo = 5;
-        		}
-        		$producto['promo_fin'] = $promocion['fecha_fin'];
-        		$promo_dias = diasRestantes($promocion['fecha_fin']);
-        		if($promo_dias <= 7)
-        		    $producto['promo_dias'] = $promo_dias;
-        		 else
-        		    $producto['promo_dias'] = "";
-        	}else{
-        		$producto['promocion'] = "";
-        		$producto['nxm'] = false;
-        		$producto['promo_dias'] = "";
-        	}
+			$producto['promocion'] = "";
+			$producto['nxm'] = false;
+			$producto['promo_dias'] = "";
+			if($producto['disponible'] == true){
+				$promocion = $this->isPromocion($producto['cod_producto']);
+				if($promocion){
+					$precio = number_format($producto['precio'],2);
+					$texto = $promocion['texto'];
+					$producto['promocion'] = $texto;
+	
+					if($promocion['is_porcentaje']==1){
+						$producto['precio_anterior'] = $precio;
+						$valor = $promocion['valor'];
+	
+						$descuento = $precio * ($valor/100);
+						$precio = $precio - $descuento;
+						$precio = number_format($precio, 2);
+			
+						$producto['precio'] = $precio;
+						$producto['nxm'] = false;
+					}else{
+						$producto['nxm'] = true;
+						if($texto == '2x1')
+							$cantidadPromo = 2;
+						else if($texto == '3x2')
+							$cantidadPromo = 3;
+						else if($texto == '4x3')
+							$cantidadPromo = 4;
+						else if($texto == '5x4')
+							$cantidadPromo = 5;
+					}
+					$producto['promo_fin'] = $promocion['fecha_fin'];
+					$promo_dias = diasRestantes($promocion['fecha_fin']);
+					if($promo_dias <= 7)
+						$producto['promo_dias'] = $promo_dias;
+					 else
+						$producto['promo_dias'] = "";
+				}
+			}
 			$producto['cantidadPromo'] = $cantidadPromo;
         	
         	if($infoAdicional){
