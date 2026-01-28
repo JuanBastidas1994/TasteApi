@@ -288,11 +288,17 @@ class cl_productos
 					AND p.estado ='A' 
 					AND p.cod_sucursal IN(0,".$cod_sucursal.") 
 					AND w.cod_web_modulos_producto = $cod_modulo
-					AND p.cod_empresa = ".cod_empresa." ORDER BY w.posicion ASC";
+					AND p.cod_empresa = ".cod_empresa." 
+					AND NOT EXISTS (
+						SELECT 1
+						FROM tb_productos_opciones o
+						WHERE o.cod_producto = p.cod_producto
+					)
+					ORDER BY w.posicion ASC";
             $resp = Conexion::buscarVariosRegistro($query);
             foreach ($resp as $key => $producto) {
                 $item = $this->infoProductHalf($producto);
-                if(isset($item['categoria'])){
+                if($item['categoria']){
                     $item['categoryName'] = $item['categoria']['categoria'];
                 }
             	$resp[$key] = $item;
