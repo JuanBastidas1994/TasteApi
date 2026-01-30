@@ -268,7 +268,7 @@ class cl_carrito
             $observacion = "No hay productos en el carrito";
         }
         else if($num_items > 0){
-            if(cod_empresa == 204 || cod_empresa == 70){ //400 GRADOS
+            if(cod_empresa == 204){ //400 GRADOS
                 if(($num_items%2) !== 0){
                     $observacion = "Los productos en el carrito deben ser par, agrega otro para continuar";
                 }

@@ -283,7 +283,7 @@ function validarOrdenCorrecta(){
 	/*PRODUCTOS*/
 	
 	/*CANTIDAD PARA 400Grados*/
-	if(cod_empresa == 204 || cod_empresa == 70){
+	if(cod_empresa == 204){
 	    if(($num_items%2) !== 0){
 	        $return['success'] = 0;
 			$return['mensaje'] = "Los productos en el carrito deben ser pares para continuar";
@@ -319,7 +319,7 @@ function validarOrdenCorrecta(){
 
 	$resp = $ClSucursales->get($cod_sucursal);
 	if ($resp) {
-	    if(cod_empresa != 204 && cod_empresa != 70){ //Para 400 grados no debe validar si esta abierto o cerrado
+	    if(cod_empresa != 204){ //Para 400 grados no debe validar si esta abierto o cerrado
     		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
     		if (!$disponibilidad) {
     			$return['success'] = 0;

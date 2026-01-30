@@ -103,7 +103,7 @@ function getInfoCheckout(){
                                 ? "Tu pedido demorará $preparation_time minutos en su preparación antes del salir del local" 
                                 : '';
     $pedido_express = false;
-    if(cod_empresa == 204 || cod_empresa == 70){
+    if(cod_empresa == 204){
         $pedido_express = [
             'title' => 'Pedido Express',
             'desc' => 'Enviaremos el pedido lo mas pronto posible',
