@@ -15,7 +15,7 @@ function notifyNewOrder($order_id){
 // 	sendMessageWhatsapp($orden);
 
     //204 es 400Grados
-    if(cod_empresa == 204 || cod_empresa == 70){
+    if(cod_empresa == 204){
         sendMessageWhatsappVideo($orden);
     }
 	
