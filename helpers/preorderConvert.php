@@ -38,7 +38,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	$sucursales = $Clsucursales->get($cod_sucursal);
 	$empresa = $Clempresas->getByCode($sucursales['cod_empresa']);
 	$Clordenes->porcentajeIva = $empresa['impuesto'];
-	$Clordenes->sucursal_grava_iva = $sucursales['envio_grava_iva'];
+	// $Clordenes->sucursal_grava_iva = $sucursales['envio_grava_iva'];
 	
 	//Ver si es una orden alta demanda
 	$altaDemanda = $Clsucursales->getAltaDemanda($cod_sucursal);

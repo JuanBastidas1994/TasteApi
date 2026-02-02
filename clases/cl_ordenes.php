@@ -529,7 +529,7 @@ class cl_ordenes
 		}
 
 		public function getOrderForNotify($cod_orden){
-			$query = "SELECT oc.cod_orden, oc.fecha, oc.subtotal, oc.descuento, oc.envio, oc.iva, oc.total, oc.estado, oc.is_envio, oc.is_programado, oc.hora_retiro, oc.referencia, oc.referencia2, u.nombre, u.apellido, u.correo, u.telefono, s.nombre as sucursal, s.direccion as sucursal_direccion, oc.cod_sucursal
+			$query = "SELECT oc.cod_orden, oc.fecha, oc.subtotal, oc.descuento, oc.envio, oc.iva, oc.total, oc.estado, oc.is_envio, oc.is_programado, oc.hora_retiro, oc.referencia, oc.referencia2, u.nombre, u.apellido, u.correo, u.telefono, s.nombre as sucursal, s.direccion as sucursal_direccion, oc.cod_sucursal, oc.is_express 
 			FROM tb_orden_cabecera oc, tb_usuarios u, tb_sucursales s
 			WHERE oc.cod_usuario = u.cod_usuario
 			AND oc.cod_sucursal = s.cod_sucursal 
@@ -546,15 +546,19 @@ class cl_ordenes
 			return $orden;
 		}
 		
-		public function setCalification($cod_orden, $calificacion, $mensaje) {
-			$mensaje = str_replace("'", "", trim($mensaje));
-			
-			$query = "INSERT INTO tb_orden_calificacion
-						SET
-							cod_orden = $cod_orden,
-							calificacion = $calificacion,
-							texto = '$mensaje'";
-			return Conexion::ejecutar($query, null);
+		public function setCalification($cod_orden, $calificacion, $mensaje)
+		{
+			$sql = "INSERT INTO tb_orden_calificacion
+					(cod_orden, calificacion, texto)
+					VALUES (:cod_orden, :calificacion, :texto)";
+
+			$data = [
+				':cod_orden'    => $cod_orden,
+				':calificacion' => $calificacion,
+				':texto'        => trim($mensaje)
+			];
+
+			return Conexion::ejecutar($sql, $data);
 		}
 		
 		public function saveOrdenDatosFacturacion($cod_orden, $datosFacturacion) {

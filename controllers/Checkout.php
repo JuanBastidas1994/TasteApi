@@ -103,7 +103,7 @@ function getInfoCheckout(){
                                 ? "Tu pedido demorará $preparation_time minutos en su preparación antes del salir del local" 
                                 : '';
     $pedido_express = false;
-    if(cod_empresa == 204){
+    if(cod_empresa == 204 || cod_empresa == 70){
         $pedido_express = [
             'title' => 'Pedido Express',
             'desc' => 'Enviaremos el pedido lo mas pronto posible',
@@ -117,6 +117,8 @@ function getInfoCheckout(){
         }else{
             $deliveryText = "Tu pedido será entregado el día de mañana entre la 1pm y 6pm";
         }
+        $deliveryTextObservation = $deliveryText;
+        $deliveryText = "";
     }
     $office['delivery_text_title'] = $deliveryTextTitle;
     $office['delivery_text'] = $deliveryText;

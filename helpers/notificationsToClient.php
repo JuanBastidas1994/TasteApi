@@ -15,7 +15,7 @@ function notifyNewOrder($order_id){
 // 	sendMessageWhatsapp($orden);
 
     //204 es 400Grados
-    if(cod_empresa == 204){
+    if(cod_empresa == 204 || cod_empresa == 70){
         sendMessageWhatsappVideo($orden);
     }
 	
@@ -58,7 +58,15 @@ function sendMessageWhatsappVideo($orden){
 	$ClMessages->setInstance('instance150737', 'br5wrz8e57z1t166');
 	
 	extract($orden);
-	$texto = "Gracias por apoyar a una empresa familiar 400 Grados. Estamos preparando tu pedido.";
+	$texto = "Gracias por apoyar a una empresa familiar 400 Grados. Estamos preparando tu pedido. ";
+    if($orden['is_express'] == 0){
+        $hora = intval(fechaToFormat($orden['fecha'], 'H'));
+        if($hora < 12){
+            $texto .= "Tu pedido será despachado entre la 1 y 6pm";
+        }else{
+            $texto .= "Tu pedido será entregado el día de mañana entre la 1pm y 6pm";
+        }
+    }
 	
 	$url = "https://dashboard.mie-commerce.com/videos/entrante.mp4";
 	
