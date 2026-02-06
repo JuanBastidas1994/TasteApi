@@ -151,7 +151,7 @@ $html = '
   <meta name="x-apple-disable-message-reformatting"> 
   <meta http-equiv="X-UA-Compatible" content="IE=edge"> 
   <meta content="telephone=no" name="format-detection"> 
-  <title>Pedido completado</title> 
+  <title>Pedido en camino</title> 
   <!--[if (mso 16)]><style type="text/css"> a {text-decoration: none;} </style><![endif]--> 
   <!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--> 
   <!--[if !mso]><!-- --> 
@@ -276,7 +276,7 @@ a.es-secondary:hover {
                         Hola '.$nombre.'!</h3></td> 
                      </tr> 
                      <tr style="border-collapse:collapse"> 
-                      <td align="left" style="padding:0;Margin:0;padding-top:10px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:17px;font-family:Montserrat, Helvetica, Roboto, Arial, sans-serif;line-height:26px;color:#4A4A4A">Tu pedido está en camino <br/> Este es el detalle del pedido</p></td> 
+                      <td align="left" style="padding:0;Margin:0;padding-top:10px"><p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:17px;font-family:Montserrat, Helvetica, Roboto, Arial, sans-serif;line-height:26px;color:#4A4A4A">El motorizado acaba de iniciar la carrera para entregar tu pedido. <br/> Este es el detalle del pedido</p></td> 
                      </tr> 
                    </table></td> 
                  </tr> 

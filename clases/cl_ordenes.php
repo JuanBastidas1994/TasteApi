@@ -501,6 +501,17 @@ class cl_ordenes
 			return Conexion::buscarRegistro($query);
 		}
 
+		public function getOrdenPixelFacebook($cod_orden){
+			$query = "SELECT oc.total, e.alias, e.api_key, e.facebook_pixel, e.facebook_pixel_verify, u.correo, u.nombre
+						FROM tb_orden_cabecera oc
+						INNER JOIN tb_empresas e ON oc.cod_empresa = e.cod_empresa
+						INNER JOIN tb_usuarios u ON oc.cod_usuario = u.cod_usuario
+						WHERE e.facebook_pixel <> ''
+						AND e.facebook_pixel_verify <> ''
+						AND oc.cod_orden = $cod_orden";
+			return Conexion::buscarRegistro($query);
+		}
+
 		public function get_orden_array($cod_orden){
 			$query = "SELECT oc.cod_orden, oc.fecha, oc.subtotal, oc.descuento, oc.envio, oc.service, oc.iva, oc.total, oc.estado, oc.is_envio, oc.is_programado, oc.hora_retiro, oc.referencia, oc.referencia2, u.nombre, u.apellido, u.correo, u.telefono, s.nombre as sucursal, s.direccion as sucursal_direccion
 						FROM tb_orden_cabecera oc, tb_usuarios u, tb_sucursales s
