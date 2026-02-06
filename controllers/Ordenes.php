@@ -534,6 +534,11 @@ function convertirPreorden(){
 	    
 	    require_once "helpers/notificationsToClient.php";
 		notifyNewOrder($id);
+	    
+		require_once "helpers/pixelFacebook.php";
+		trackPurchaseServer($id);
+
+
 		validarCuponera($id); //Cuponera Furiast
 
 		
