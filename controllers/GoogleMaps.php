@@ -6,17 +6,17 @@ if ($method == "GET") {
     $metodo = $request[1];
 
     if ($metodo == "autocomplete") {
-        $filtro = urldecode($request[2]);
+        $filtro = urlencode($request[2]);
         try {
             $data = ExecuteQuery("https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$filtro&language=es&components=country:ec&key=".API_GOOGLE_MAPS);
             // Siempre devuelve array aunque falle
             if ($data && isset($data->status) && $data->status == "OK") {
                 showResponse(["success" => 1, "predictions" => $data->predictions]);
             } else {
-                showResponse(["success" => 0, "predictions" => []]);
+                showResponse(["success" => 0, "predictions" => [], 'filtro' => $filtro]);
             }
         } catch (Exception $e) {
-            showResponse(["success" => 0, "predictions" => []]);
+            showResponse(["success" => 0, "predictions" => [], 'filtro' => $filtro]);
         }
     }else if($metodo == "details") {
         $placeId = $request[2];
