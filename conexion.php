@@ -33,14 +33,25 @@ class Conexion {
     }
 
     public static function buscarRegistro($sql, $data = null) {
-        /* retorna los datos de un refistro en un array de una dimensi贸n */
+        /* retorna un registro en un array */
         try {
             $con = self::obtenerConexion();
             $rs = $con->prepare($sql);
             $rs->execute($data);
             return $rs->fetch(PDO::FETCH_ASSOC);
+
         } catch (Exception $ex) {
-            echo "Error al nivel de Database ".$sql.'<br/>';
+
+            error_log(
+                date('[Y-m-d H:i:s] ') . 
+                $ex->getMessage() . PHP_EOL .
+                'SQL: ' . $sql . PHP_EOL .
+                'DATA: ' . json_encode($data) . PHP_EOL . PHP_EOL,
+                3,
+                __DIR__ . '/errores_sql.log'
+            );
+
+            return false;
         }
     }
     
@@ -56,26 +67,28 @@ class Conexion {
     }
 
     public static function buscarVariosRegistro($sql, $data = null) {
-        /* retorna los datos de un refistro en un array de una dimensi贸n */
+        /* retorna los datos de varios registros en un array */
         try {
             $con = self::obtenerConexion();
             $rs = $con->prepare($sql);
             $rs->execute($data);
             return $rs->fetchAll(PDO::FETCH_ASSOC);
+
         } catch (Exception $ex) {
-            echo "Error: " . $ex->getMessage();
+
+            error_log(
+                date('[Y-m-d H:i:s] ') . 
+                $ex->getMessage() . PHP_EOL .
+                'SQL: ' . $sql . PHP_EOL .
+                'DATA: ' . json_encode($data) . PHP_EOL . PHP_EOL,
+                3,
+                __DIR__ . '/errores_sql.log'
+            );
+
+            return false;
         }
     }
 
-    // public static function ejecutar($sql, $data) {
-
-    //     $con = self::obtenerConexion();
-    //     $rs = $con->prepare($sql);
-    //     if ($rs->execute($data)) {
-    //         return true;
-    //     }
-    //     return false;
-    // }
     public static function ejecutar($sql, $data) {
         try
         {
