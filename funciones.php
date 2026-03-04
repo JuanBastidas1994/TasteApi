@@ -48,6 +48,14 @@ function getUserDevice(){
   return null;
 }
 
+function getUserDeliveryType(){
+  $Allheaders = getallheaders();
+  if(array_key_exists("Delivery-Type",$Allheaders)){
+    return $Allheaders['Delivery-Type'];
+  }
+  return null;
+}
+
 function encrypt_decrypt($action, $string) {
     $output = false;
     $encrypt_method = "AES-128-CBC";

@@ -54,8 +54,12 @@ function getInfo($user_id){
     }
     
     $cod_usuario = $usuario['cod_usuario'];
-    if(!$Clclientes->getByUser($cod_usuario))
-		return [ 'success' => 0, 'mensaje' => 'Usuario no tiene un cliente creado'];
+    if(!$Clclientes->getByUser($cod_usuario)){
+		$cod_cliente = 0;
+		$Clclientes->create($cod_usuario, $usuario['nombre'], $cod_cliente, "");
+		$Clclientes->getByUser($cod_usuario);
+		// return [ 'success' => 0, 'mensaje' => 'Usuario no tiene un cliente creado'];
+	}
     
     $wallet = getWallet($cod_usuario);
 		

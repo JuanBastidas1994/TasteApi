@@ -3,6 +3,7 @@
 class cl_productos
 {
 		var $cod_producto = 0, $cod_sucursal = 0, $officeTaxable = 1;
+		public $promosByProducto = [];
 		
 		public function __construct($pcod_producto=null)
 		{
@@ -459,20 +460,6 @@ class cl_productos
 
 
 		/*PROMOCIONES*/
-		public function isPromocionOld($cod_producto){
-			$cod_sucursal = $this->cod_sucursal;
-			$fecha = fecha();
-			$query = "SELECT * 
-					FROM tb_producto_descuento pd
-					WHERE pd.cod_producto = $cod_producto
-					AND pd.cod_sucursal = $cod_sucursal
-					AND pd.fecha_inicio <= '$fecha'
-					AND pd.fecha_fin >= '$fecha'
-					AND pd.estado = 'A'";
-			$row = Conexion::buscarRegistro($query);	
-			return $row;	
-		}
-
 		public function isPromocion($cod_producto)
 		{
 			$cod_sucursal = $this->cod_sucursal;
@@ -526,6 +513,22 @@ class cl_productos
 							AND :hora BETWEEN pr.hora_inicio AND pr.hora_fin
 						)
 					)
+					AND (
+						:delivery_type IS NULL
+						OR
+						NOT EXISTS (
+							SELECT 1
+							FROM promocion_tipo_entrega pte2
+							WHERE pte2.cod_promocion = p.cod_promocion
+						)
+						OR
+						EXISTS (
+							SELECT 1
+							FROM promocion_tipo_entrega pte
+							WHERE pte.cod_promocion = p.cod_promocion
+							AND pte.tipo_entrega = :delivery_type
+						)
+					)
 				LIMIT 1
 			";
 
@@ -535,11 +538,109 @@ class cl_productos
 				':cod_empresa'  => cod_empresa,
 				':fecha'        => $fecha,
 				':hora'         => $hora,
-				':dia'          => $dia
+				':dia'          => $dia,
+				':delivery_type'=> delivery_type
 			];
 
 			return Conexion::buscarRegistro($query, $params);
 		}
+
+		public function getPromocionesActivas($cod_sucursal)
+		{
+			$fecha = date('Y-m-d H:i:s');
+			$hora  = date('H:i:s');
+			$diaNumero = date('N');
+
+			$dias = [
+				1 => 'lunes',
+				2 => 'martes',
+				3 => 'miercoles',
+				4 => 'jueves',
+				5 => 'viernes',
+				6 => 'sabado',
+				7 => 'domingo'
+			];
+
+			$dia = $dias[$diaNumero];
+			$deliveryType = delivery_type; // constante global
+
+			$query = "
+				SELECT 
+					pp.cod_producto,
+					p.cod_promocion,
+					p.descripcion,
+					p.is_porcentaje,
+					p.valor,
+					p.texto,
+					p.fecha_inicio,
+					p.fecha_fin,
+					p.cantidad
+				FROM promociones p
+				INNER JOIN promocion_producto pp 
+					ON p.cod_promocion = pp.cod_promocion
+				INNER JOIN promocion_sucursal ps 
+					ON p.cod_promocion = ps.cod_promocion
+				WHERE
+					ps.cod_sucursal = :cod_sucursal
+					AND p.cod_empresa = :cod_empresa
+					AND p.fecha_inicio <= :fecha
+					AND p.fecha_fin >= :fecha
+					
+					AND (
+						NOT EXISTS (
+							SELECT 1
+							FROM promocion_recurrente pr2
+							WHERE pr2.cod_promocion = p.cod_promocion
+						)
+						OR
+						EXISTS (
+							SELECT 1
+							FROM promocion_recurrente pr
+							WHERE pr.cod_promocion = p.cod_promocion
+							AND pr.dia_semana = :dia
+							AND :hora BETWEEN pr.hora_inicio AND pr.hora_fin
+						)
+					)
+
+					AND (
+						:delivery_type IS NULL
+						OR
+						NOT EXISTS (
+							SELECT 1
+							FROM promocion_tipo_entrega pte2
+							WHERE pte2.cod_promocion = p.cod_promocion
+						)
+						OR
+						EXISTS (
+							SELECT 1
+							FROM promocion_tipo_entrega pte
+							WHERE pte.cod_promocion = p.cod_promocion
+							AND pte.tipo_entrega = :delivery_type
+						)
+					)
+			";
+
+			$params = [
+				':cod_sucursal' => $cod_sucursal,
+				':cod_empresa'  => cod_empresa,
+				':fecha'        => $fecha,
+				':hora'         => $hora,
+				':dia'          => $dia,
+				':delivery_type'=> $deliveryType
+			];
+
+			$result = Conexion::buscarVariosRegistro($query, $params);
+			$promosByProducto = [];
+			if ($result) {
+				foreach ($result as $promo) {
+					$promosByProducto[$promo['cod_producto']] = $promo;
+				}
+			}
+
+			return $promosByProducto;
+		}
+
+
 		
 		private function sucursalGravaIva($cod_sucursal) {
 			$query = "SELECT grava_iva FROM tb_sucursales WHERE cod_sucursal = $cod_sucursal";
@@ -652,7 +753,8 @@ class cl_productos
 			$producto['nxm'] = false;
 			$producto['promo_dias'] = "";
 			if($producto['disponible'] == true){
-				$promocion = $this->isPromocion($producto['cod_producto']);
+				// $promocion = $this->isPromocion($producto['cod_producto']);
+				$promocion = $this->promosByProducto[$producto['cod_producto']] ?? null;
 				if($promocion){
 					$precio = number_format($producto['precio'],2);
 					$texto = $promocion['texto'];

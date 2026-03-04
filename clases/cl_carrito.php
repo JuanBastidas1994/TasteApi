@@ -75,6 +75,7 @@ class cl_carrito
             if($array['cupon'] !== "")
                 $cupon = $array['cupon'];
         }
+        $Clproductos->promosByProducto = $Clproductos->getPromocionesActivas($cod_sucursal);
 
         $x = 0;
         if (is_array($productos))
@@ -113,8 +114,9 @@ class cl_carrito
                     $descuentoItem = 0;
                     $descuentoItemWithoutTax = 0;
                     $descuentoPorcentaje = 0;
-
-                    $promocion = $Clproductos->isPromocion($p['id']);
+                    
+                    // $promocion = $Clproductos->isPromocion($p['id']);
+                    $promocion = $promosByProducto[$p['id']] ?? null;
                     if ($promocion) {
                         if ($promocion['is_porcentaje'] == 1) {
                             $valor = $promocion['valor'];

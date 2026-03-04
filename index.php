@@ -34,6 +34,7 @@ $funciones = array(
     "correos"=> "controllers/Correos.php",
 	"applogs" => "controllers/Logs.php",
 	"retail" => "controllers/Retail.php",
+	"places" => "controllers/GoogleMaps.php",
 	
 	//CUSTOM
 	//"osole" => "controllers/custom/osole/osole.php",
@@ -68,6 +69,7 @@ if(verificateWs($empresa))
 	define('contact_manager',$empresa['telefono']);
 	define('service_percentage',$empresa['service_percentage']);
 	define('user_id',getUserHeader());
+	define('delivery_type',getUserDeliveryType());
 
 	if($empresa['fidelizacion'] == 1)
 		define('fidelizacion',true);
