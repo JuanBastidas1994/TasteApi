@@ -63,6 +63,7 @@ function getConfiguracion($aplicacion = ""){
 		$return['fidelizacion'] = [
 		    'amount' => number_format($fidelizacion['divisor_puntos'],2),
 		    'points' => number_format($fidelizacion['monto_puntos'],2),
+			'generate_barcode' => $fidelizacion['generate_barcode'],
 		];
 		$return['niveles'] = $ClEmpresas->getNiveles();
 		$return['faqs'] = $ClEmpresas->getFaqs();

@@ -139,56 +139,63 @@ function productos($cod_sucursal = 0){
 }
 
 function productosBasico($cod_sucursal = 0){
-	if($cod_sucursal == 0) {
-		$cod_sucursal = getFirstSucursal();
-	}
-	if($cod_sucursal == 0) {
-		$return['success'] = 0;
-		$return['mensaje'] = "No se pudo obtener la sucursal por defecto";
-	}
-	global $Clcategorias;
-	global $Clproductos;
-    
-    
-	$Clproductos->cod_sucursal = $cod_sucursal;
-	$categorias = $Clcategorias->listaBasica();
 
-	$respCategorias = [];
-	$productosPromo = [];
-    $x=0;
+    if($cod_sucursal == 0) {
+        $cod_sucursal = getFirstSucursal();
+    }
 
-	foreach ($categorias as $key => $categoria) {
-		$productos = $Clproductos->listaBasicaByCategoria($categoria['cod_categoria']);
+    if($cod_sucursal == 0) {
+        return [
+            'success' => 0,
+            'mensaje' => "No se pudo obtener la sucursal por defecto"
+        ];
+    }
+
+    global $Clcategorias;
+    global $Clproductos;
+
+    $Clproductos->cod_sucursal = $cod_sucursal;
+	$Clproductos->promosByProducto = $Clproductos->getPromocionesActivas($cod_sucursal);
+
+    $categorias = $Clcategorias->listaBasica();
+
+    $respCategorias = [];
+    $productosPromo = [];
+    $x = 0;
+
+    foreach ($categorias as $categoria) {
+        $productos = $Clproductos->listaBasicaByCategoria($categoria['cod_categoria']);
 
         if (count($productos) > 0) {
-			//Productos con promoción
-			foreach ($productos as $producto) {
+            foreach ($productos as $producto) {
                 if (!empty($producto['promocion'])) {
                     $productosPromo[] = $producto;
                 }
             }
-			$categoria['productos'] = $productos;
-			$respCategorias[$x] = $categoria;
-			$x++;
-		}
-	}
-
-	if (count($productosPromo) > 0) {
-        $categoriaPromo = [
-            'cod_categoria' => 'PROMO',
-            'alias'          => 'promociones',
-            'categoria'      => 'Promociones',
-            'image_min'      => '',
-            'image_max'      => '',
-            'productos'      => $productosPromo
-        ];
-        array_unshift($respCategorias, $categoriaPromo); // Insertar al inicio
+            $categoria['productos'] = $productos;
+            $respCategorias[$x] = $categoria;
+            $x++;
+        }
     }
 
-	return [
+    if (count($productosPromo) > 0) {
+        $categoriaPromo = [
+            'cod_categoria' => 'PROMO',
+            'alias'         => 'promociones',
+            'categoria'     => 'Promociones',
+            'image_min'     => '',
+            'image_max'     => '',
+            'productos'     => $productosPromo
+        ];
+
+        array_unshift($respCategorias, $categoriaPromo);
+    }
+
+    return [
         'success' => 1,
         'mensaje' => 'Lista de productos con informacion basica',
         'data'    => $respCategorias
     ];
 }
+
 ?>
