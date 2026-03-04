@@ -6,9 +6,9 @@ if ($method == "GET") {
     $metodo = $request[1];
 
     if ($metodo == "autocomplete") {
-        $filtro = $request[2];
+        $filtro = urldecode($request[2]);
         try {
-            $data = ExecuteQuery("https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$filtro&language=es&key=".API_GOOGLE_MAPS);
+            $data = ExecuteQuery("https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$filtro&language=es&components=country:ec&key=".API_GOOGLE_MAPS);
             // Siempre devuelve array aunque falle
             if ($data && isset($data->status) && $data->status == "OK") {
                 showResponse(["success" => 1, "predictions" => $data->predictions]);
