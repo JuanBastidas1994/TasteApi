@@ -29,6 +29,10 @@ $Clcategorias = new cl_categorias();
 			   $return = menuDigital(); 
 			   showResponse($return);
 			}
+			if($first=="portfolio"){
+			   $return = getPortfolio(); 
+			   showResponse($return);
+			}
 		}
 		if($num_variables == 3){
 			$first = $request[1];
@@ -302,5 +306,31 @@ function fillArrayItemsNoRepeat(&$fill, $newArray){
 	}
 }
 
+function getPortfolio(){
+	$query = "SELECT e.nombre as title, e.url_web as link, t.path, t.categories, t.cities 
+				FROM tb_taste_portafolio t
+				INNER JOIN tb_empresas e 
+					ON t.cod_empresa = e.cod_empresa
+				WHERE e.estado = 'A'";
+	$resp = Conexion::buscarVariosRegistro($query);
 
+	if(!$resp){
+	    $return['success'] = 0;
+	    $return['mensaje'] = "Error al obtener datos del portafolio";
+	    $return['data'] = [];
+	    return $return;
+	}
+
+	foreach ($resp as $key => $r) {
+		$categories = json_decode($r['categories'], true);
+		$cities = json_decode($r['cities'], true);
+		$resp[$key]['categories'] = $categories ? $categories : [];
+		$resp[$key]['cities'] = $cities ? $cities : [];
+	}
+
+	$return['success'] = 1;
+	$return['mensaje'] = "Lista Portafolio";
+	$return['data'] = $resp;
+	return $return;
+}
 ?>
