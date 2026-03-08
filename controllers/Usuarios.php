@@ -716,6 +716,7 @@ function add_phone_no_validate(){
     
     $update = $Clusuarios->set_telefono($cod_usuario, $phone);
 	if($update){
+		$Clusuarios->set_telefono_all_orders($cod_usuario, $phone);
 	    $return = [ 'success' => 1, 'mensaje' => 'Teléfono actualizado correctamente', 'telefono' => $phone ];
 	}else{
 	    $return = [ 'success' => 0, 'mensaje' => 'No se pudo actualizar el telefono, intentelo nuevamente' ];

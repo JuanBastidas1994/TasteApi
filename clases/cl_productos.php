@@ -800,6 +800,7 @@ class cl_productos
         	}
         	
         	$producto['empaque'] = $this->getEmpaque($producto['cod_producto']);
+        	$producto['tag'] = $this->getTag($producto['cod_producto']);
         	
         	return $producto;
         }
@@ -812,6 +813,15 @@ class cl_productos
                 $resp['alto'] = ($alto == intval($alto)) ? intval($alto) : $alto;
             }
             return $resp;
+        }
+
+        public function getTag($cod_producto){
+            $query = "SELECT tag FROM tb_productos_tags WHERE cod_producto = $cod_producto";
+            $resp = Conexion::buscarRegistro($query);
+			if($resp)
+            	return $resp['tag'];
+			else
+				return "";
         }
         
         public function getArmaBowl($cod_producto){

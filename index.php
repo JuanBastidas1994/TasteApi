@@ -35,6 +35,7 @@ $funciones = array(
 	"applogs" => "controllers/Logs.php",
 	"retail" => "controllers/Retail.php",
 	"places" => "controllers/GoogleMaps.php",
+	"notificaciones" => "controllers/Notificaciones.php",
 	
 	//CUSTOM
 	//"osole" => "controllers/custom/osole/osole.php",

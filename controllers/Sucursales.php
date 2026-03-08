@@ -35,6 +35,7 @@ $ClEmpresas = new cl_empresas();
             		    if(!isset($resp['motivo_cierre'])){
             		        $resp['motivo_cierre'] = "Tienda Cerrada";
             		    }
+						//Si esta cerrado verificar si tiene Programacion de pedido
             		}else{                                      //Ver a que hora cierra
             		    $resp['motivo_cierre'] = "";
             		    list($hora, $minuto, $segundo) = explode(':', $resp['hora_fin']);
