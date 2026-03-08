@@ -142,6 +142,11 @@ class cl_usuarios
 		return Conexion::ejecutar($query,NULL);
 	}
 
+	function set_telefono_all_orders($cod_usuario, $telefono){
+		$query = "UPDATE  tb_orden_cabecera SET telefono = '$telefono' WHERE cod_usuario = $cod_usuario AND estado NOT IN('ENTREGADA', 'ANULADA')";
+		return Conexion::ejecutar($query,NULL);
+	}
+
 	function set_telefono_verificado($cod_usuario, $telefono){
 		$query = "UPDATE tb_usuarios SET telefono = '$telefono', telefono_verificado=1 WHERE cod_usuario = $cod_usuario";
 		return Conexion::ejecutar($query,NULL);

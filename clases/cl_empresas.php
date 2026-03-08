@@ -83,6 +83,15 @@ class cl_empresas
 			}
 			return $resp;
 		}
+
+		public function getTopic(){
+			$query = "SELECT * FROM  tb_empresa_notificaciones WHERE aplicacion='USUARIOS' AND estado = 'A' AND cod_empresa = ".cod_empresa;
+			$resp = Conexion::buscarRegistro($query);
+			if($resp){
+				return $resp['topic'];
+			}else
+				return false;
+		}
 		
 		public function getFaqs(){
 			$cod_empresa = cod_empresa;
