@@ -496,7 +496,7 @@ class cl_productos
 					pp.cod_producto = :cod_producto
 					AND ps.cod_sucursal = :cod_sucursal
 					AND p.cod_empresa = :cod_empresa
-					AND DATE(:fecha) BETWEEN p.fecha_inicio AND p.fecha_fin
+					AND :fecha BETWEEN p.fecha_inicio AND p.fecha_fin
 					AND (
 						NOT EXISTS (
 							SELECT 1
@@ -582,8 +582,8 @@ class cl_productos
 				WHERE
 					ps.cod_sucursal = :cod_sucursal
 					AND p.cod_empresa = :cod_empresa
-					AND p.fecha_inicio <= :fecha
-					AND p.fecha_fin >= :fecha
+					AND :fecha BETWEEN p.fecha_inicio AND p.fecha_fin
+					AND p.estado = 'A'
 					
 					AND (
 						NOT EXISTS (
