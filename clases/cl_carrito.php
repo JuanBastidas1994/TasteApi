@@ -116,7 +116,7 @@ class cl_carrito
                     $descuentoPorcentaje = 0;
                     
                     // $promocion = $Clproductos->isPromocion($p['id']);
-                    $promocion = $promosByProducto[$p['id']] ?? null;
+                    $promocion = $Clproductos->promosByProducto[$p['id']] ?? null;
                     if ($promocion) {
                         if ($promocion['is_porcentaje'] == 1) {
                             $valor = $promocion['valor'];
