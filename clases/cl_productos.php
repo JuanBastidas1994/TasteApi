@@ -385,7 +385,7 @@ class cl_productos
 		}
 		
 		public function detalle_opciones_noProductos($cod_producto_opcion){
-			$query = "SELECT cod_producto_opciones_detalle,item,aumentar_precio,precio FROM tb_productos_opciones_detalle WHERE cod_producto_opcion = $cod_producto_opcion ORDER BY posicion ASC";
+			$query = "SELECT cod_producto_opciones_detalle,item, detalle, aumentar_precio,precio FROM tb_productos_opciones_detalle WHERE cod_producto_opcion = $cod_producto_opcion ORDER BY posicion ASC";
 			$resp = Conexion::buscarVariosRegistro($query);
 			if($resp){
 			    foreach ($resp as $key => $opciones) {
@@ -397,7 +397,7 @@ class cl_productos
 
 		public function detalle_opciones_Productos($cod_producto_opcion){
 		    $cod_sucursal = $this->cod_sucursal;
-			$query = "SELECT po.cod_producto_opciones_detalle, p.nombre as item, po.aumentar_precio, po.precio, p.agotado_fin, p.precio as precio_real
+			$query = "SELECT po.cod_producto_opciones_detalle, p.nombre as item, po.detalle, po.aumentar_precio, po.precio, p.agotado_fin, p.precio as precio_real
 					FROM tb_productos_opciones_detalle po, vw_producto_sucursal p
 					WHERE po.item = p.cod_producto
                     AND p.cod_sucursal = ".$cod_sucursal."
@@ -816,12 +816,13 @@ class cl_productos
         }
 
         public function getTag($cod_producto){
-            $query = "SELECT tag FROM tb_productos_tags WHERE cod_producto = $cod_producto";
+            $query = "SELECT  t.icono, t.nombre, t.color
+					FROM tb_productos_tags pt
+					INNER JOIN tb_tags t 
+						ON pt.tag_id = t.id
+					WHERE pt.cod_producto = $cod_producto";
             $resp = Conexion::buscarRegistro($query);
-			if($resp)
-            	return $resp['tag'];
-			else
-				return "";
+			return $resp;
         }
         
         public function getArmaBowl($cod_producto){
