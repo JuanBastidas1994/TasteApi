@@ -32,7 +32,7 @@ $Clproductos = new cl_productos();
 		    }
 			if($producto){
 				$return['success'] = 1;
-				$return['mensaje'] = "Correcto";
+				$return['mensaje'] = "Un solo producto";
 				$return['data'] = $producto;
 			}else{
 				$return['success'] = 0;
@@ -51,7 +51,7 @@ $Clproductos = new cl_productos();
 		        if($resp)
     			{
     				$return['success'] = 1;
-    				$return['mensaje'] = "Correcto";
+    				$return['mensaje'] = "Producto encontrado";
     				$return['data'] = $resp;
     			}else{
     				$return['success'] = 0;
@@ -67,7 +67,7 @@ $Clproductos = new cl_productos();
 		        if($resp)
     			{
     				$return['success'] = 1;
-    				$return['mensaje'] = "Correcto";
+    				$return['mensaje'] = "Producto encontrado por alias";
     				$return['data'] = $resp;
     			}else{
     				$return['success'] = 0;
