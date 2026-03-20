@@ -63,9 +63,9 @@ $Clproductos = new cl_productos();
 		        $alias = $request[1];
 		        $cod_sucursal = $request[2];
 				$Clproductos->setSucursal($cod_sucursal);
-		        $resp = $Clproductos->getInfoByAlias($alias);
-		        if($resp)
-    			{
+		        // $resp = $Clproductos->getInfoByAlias($alias);
+		        $resp = $Clproductos->getByAliasDetectVariants($alias);
+		        if($resp){
     				$return['success'] = 1;
     				$return['mensaje'] = "Producto encontrado por alias";
     				$return['data'] = $resp;
