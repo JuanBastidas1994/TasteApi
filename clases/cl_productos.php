@@ -92,6 +92,27 @@ class cl_productos
             }
             return $producto;
 		}
+
+		public function getByAliasDetectVariants($alias){
+			$cod_sucursal = $this->cod_sucursal;
+			$query = "SELECT p.cod_producto, p.cod_producto_padre, p.alias, p.nombre, p.desc_corta, p.image_min, p.image_max, p.agotado_inicio, p.agotado_fin, p.cod_sucursal, p.precio_no_tax, p.iva_valor, p.precio, p.precio_anterior, p.open_detalle
+					FROM vw_producto_sucursal p
+					WHERE p.estado IN ('A')
+					AND p.cod_sucursal IN(0, $cod_sucursal)
+					AND p.alias = '$alias'
+					AND p.cod_empresa = ".cod_empresa;
+            $producto = Conexion::buscarRegistro($query);
+            if($producto){
+				$variantes = $this->listaVariantes($producto['cod_producto']);
+				if($variantes){
+					$producto = $this->infoProductComplete($variantes[0]);
+					$producto['image_max'] = $variantes[0]['image_max'];
+				}else{
+					$producto = $this->infoProductComplete($producto);
+				}
+            }
+            return $producto;
+		}
 		
 		function isVisibleDate($cod_producto){
 		    $dia = date('N', strtotime(fecha())); //1 Lunes - 7 Domingo
@@ -711,16 +732,10 @@ class cl_productos
 			}
 			$producto['cantidadPromo'] = $cantidadPromo;
         	
-        	$variantes = $this->listaVariantes($producto['cod_producto']);
-        	if($variantes){
-        	    $producto['variantes'] = $variantes;
-        	    $producto['opciones'] = [];
-        	    $producto['addcart'] = false;
-        	}else{
-        	    $producto['variantes'] = $variantes;
-        	    $producto['opciones'] = $this->opciones($producto['cod_producto']);
-        	    $producto['addcart'] = true;
-        	}
+			$variantes = $this->listaVariantes($producto['cod_producto_padre'] > 0 ? $producto['cod_producto_padre'] : $producto['cod_producto']);
+			$producto['variantes'] = $variantes;
+			$producto['opciones'] = $this->opciones($producto['cod_producto']);
+			$producto['addcart'] = true;
         	
         	if($producto['cod_producto_padre'] > 0)
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto_padre']);
