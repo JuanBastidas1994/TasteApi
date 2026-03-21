@@ -660,6 +660,32 @@ class cl_productos
 			return $promosByProducto;
 		}
 
+		private function getEventoProducto($cod_producto) {
+			$query = "SELECT dias_anticipacion, dias_fin, titulo, descripcion 
+					FROM tb_producto_evento 
+					WHERE cod_producto = $cod_producto 
+					AND activo = 1";
+			
+			$evento = Conexion::buscarRegistro($query);
+			
+			if (!$evento) return false;
+			
+			$hoy = new DateTime();
+			
+			$fechaInicio = clone $hoy;
+			$fechaInicio->modify("+{$evento['dias_anticipacion']} days");
+			
+			$fechaFin = clone $hoy;
+			$fechaFin->modify("+{$evento['dias_fin']} days");
+			
+			return [
+				'titulo' => $evento['titulo'],
+				'descripcion' => $evento['descripcion'],
+				'dias_anticipacion' => (int)$evento['dias_anticipacion'],
+				'dia_inicio' => $fechaInicio->format('Y-m-d'),
+				'dia_final'  => $fechaFin->format('Y-m-d'),
+			];
+		}
 
 		
 		private function sucursalGravaIva($cod_sucursal) {
@@ -736,6 +762,7 @@ class cl_productos
 			$producto['variantes'] = $variantes;
 			$producto['opciones'] = $this->opciones($producto['cod_producto']);
 			$producto['addcart'] = true;
+			$producto['evento'] = $this->getEventoProducto($producto['cod_producto']);
         	
         	if($producto['cod_producto_padre'] > 0)
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto_padre']);

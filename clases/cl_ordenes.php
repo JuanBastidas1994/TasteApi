@@ -360,10 +360,8 @@ class cl_ordenes
 							$desc_text = (isset($producto['promocion'])) ? $producto['promocion'] : "";
 						}
 						
+						//DETALLES
 						Conexion::ejecutar("SET NAMES 'utf8mb4'", NULL);
-				// 		$queryDetalle = "INSERT INTO tb_orden_detalle(cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax, cantidad, base_0, base_12, descuento_porcentaje, descuento, subtotal_12, subtotal_0, desc_text, precio_final, adicional_total, adicional_no_tax_unidad, adicional_no_tax_total) ";
-				// 		$queryDetalle.= "VALUES($id, $codigo, '$descripcion', '$comentario_producto', $precio, $precio_no_tax, $cantidad, $base0, $base12, $descuentoPorcentaje, $descuento, $subtotal12, $subtotal0, '$desc_text', $precio_total, $adicional_total, $adicional_no_tax, $adicional_no_tax_total)";
-				// 		Conexion::ejecutar($queryDetalle,NULL);
         				$sql = "INSERT INTO tb_orden_detalle(
                             cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax,
                             cantidad, base_0, base_12, descuento_porcentaje, descuento,
@@ -391,10 +389,14 @@ class cl_ordenes
                             $adicional_no_tax,
                             $adicional_no_tax_total
                         ];
-                        
                         Conexion::ejecutar($sql, $data);
-						//mylog($queryDetalle, "SAVE_ORDEN_DETALLE");
 
+						//EVENTO
+						if($producto['eventDay']){
+							$sql = "INSERT INTO tb_orden_evento (cod_orden, dia) VALUES (?, ?)";
+							$data = [ $id, $producto['eventDay'] ];
+							Conexion::ejecutar($sql, $data);
+						}
 					}
 					
 					/*GUARDAR CIUDAD*/
