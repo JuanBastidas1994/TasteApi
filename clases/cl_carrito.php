@@ -87,6 +87,7 @@ class cl_carrito
                     $items[$x]['identificador'] = isset($p["identificador"]) ? $p["identificador"] : $p["time"];
                     $items[$x]['descripcion'] = isset($p["descripcion"]) ? $p["descripcion"] : "";
                     $items[$x]['comentarios'] = isset($p["comentarios"]) ? $p["comentarios"] : "";
+                    $items[$x]['eventDay'] = isset($p["eventDay"]) ? $p["eventDay"] : "";
                     $items[$x]['opciones'] = isset($p["opciones"]) ? $p["opciones"] : [];
                     $precio = $items[$x]['precio'];
                     $precio_no_tax = ($elemento['cobra_iva'] == 0) ? $precio : $this->noRound($precio / $this->DivitIva, false);
