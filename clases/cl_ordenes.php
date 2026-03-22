@@ -392,9 +392,10 @@ class cl_ordenes
                         Conexion::ejecutar($sql, $data);
 
 						//EVENTO
-						if($producto['eventDay']){
+						$eventDay = isset($producto['eventDay']) ? $producto['eventDay'] : false;
+						if($eventDay){
 							$sql = "INSERT INTO tb_orden_evento (cod_orden, dia) VALUES (?, ?)";
-							$data = [ $id, $producto['eventDay'] ];
+							$data = [ $id, $eventDay ];
 							Conexion::ejecutar($sql, $data);
 						}
 					}
