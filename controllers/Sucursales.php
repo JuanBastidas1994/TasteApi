@@ -138,7 +138,7 @@ $ClEmpresas = new cl_empresas();
 function getPrecioDefinitivo(){
 	global $ClSucursales;
 
-	$input = validateInputs(array("latitud", "longitud", "office_id"));
+	$input = validateInputs(array("latitud", "longitud", "office_id", "tariff_id"));
     extract($input);
 
 	$sucursal = $ClSucursales->getConPrecio($office_id,$latitud, $longitud);
@@ -146,13 +146,14 @@ function getPrecioDefinitivo(){
 		showResponse(['success' => 0, 'mensaje' => 'Sucursal no existente o inactiva']);
 	}
 
-	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, true);
+	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, $tariff_id, true);
 	showResponse([
         'success' => 1,
         'mensaje' => 'Precio Envio Exitoso', 
         'precio' => $precioEnvio['precio'], 
 		'courier' => $precioEnvio['courierName'],
 		'distancia' => $precioEnvio['distancia'],
+		'tarifa' => $tariff_id,
     ]);
 }
 
@@ -208,10 +209,12 @@ function getCobertura($latitud, $longitud){
 		try{
 			$routeParam = isset($_GET['route']) ? $_GET['route'] : 1;
 			$route = $routeParam == 1 ? true : false;
-			$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $route);
+			$tarifa = isset($_GET['tariff_id']) ? $_GET['tariff_id'] : 0;
+			$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $tarifa, $route);
 			$sucursales[0]['precio'] = $precioEnvio['precio'];
 			$sucursales[0]['metodo_cobertura'] = $precioEnvio['courierName'];
 			$sucursales[0]['distancia'] = $precioEnvio['distancia'];
+			$sucursales[0]['tarifa'] = $tarifa;
 		}catch (Exception $e) {
 			if($courier['validar_cobertura'] == 1){
 				responseError("No hay cobertura. Error: " . $cod_sucursal . " - " . $e->getMessage() , "COURIER_VALIDATOR");
