@@ -155,6 +155,22 @@ class cl_sucursales
 			}
 		}
 
+		public function getTarifaPrecio($distancia, $cod_tarifa) {
+			$query = "SELECT distancia_ini, distancia_fin, precio 
+					FROM tb_sucursal_costo_envio_rango
+					WHERE cod_tarifa = $cod_tarifa";
+			
+			$rangos = Conexion::buscarVariosRegistro($query);
+			if($rangos) {
+				foreach($rangos as $rango) {
+					if($distancia >= $rango['distancia_ini'] && $distancia < $rango['distancia_fin']) {
+						return $rango['precio'];
+					}
+				}
+			}
+			return 0;
+		}
+
 		public function getConPrecio($cod_sucursal, $latitud, $longitud){
 
 			$cod_empresa = cod_empresa;
