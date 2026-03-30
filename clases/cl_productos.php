@@ -58,7 +58,7 @@ class cl_productos
 
 		public function getInfoBasic($cod_producto){ //FUNCION USADA EN CARRITO
 		    $cod_sucursal = $this->cod_sucursal;
-			$query = "SELECT p.cod_producto, p.cod_producto_padre, p.alias, p.nombre, p.image_min, p.image_max, p.agotado_inicio, p.agotado_fin, p.cod_sucursal, p.precio_no_tax, p.iva_valor, p.precio, p.precio_anterior, p.cobra_iva
+			$query = "SELECT p.cod_producto, p.cod_producto_padre, p.alias, p.nombre, p.image_min, p.image_max, p.agotado_inicio, p.agotado_fin, p.cod_sucursal, p.precio_no_tax, p.iva_valor, p.precio, p.precio_anterior, p.cobra_iva, p.peso
 					FROM vw_producto_sucursal p
 					WHERE p.estado IN ('A')
 					AND p.cod_sucursal IN(0, $cod_sucursal)

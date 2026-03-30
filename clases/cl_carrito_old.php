@@ -6,7 +6,6 @@ class cl_carrito
     public $quitarCupon = false, $motivoCupon = "", $infoCupon = null;
     public $productos = null, $subtotal, $iva, $total, $service = 0, $descuento = 0, $descuento_no_tax, $envio = 0, $peso = 0;
     public $base0 = 0, $base12 = 0, $desxitem = 0;
-    public $tarifa_id = 0;
     public $num_items = 0;
     public $tiempo_preparacion = 0;
     public $tipo_descuento = 0; //0 PORCENTAJE - 1 EFECTIVO
@@ -64,7 +63,6 @@ class cl_carrito
         $totalOrderWithTax = 0;
         $tiempo_preparacion = 0;
         $peso = 0;
-        $tarifa_id = 0;
         $items = [];
 
         $desxitem = 0;
@@ -271,7 +269,12 @@ class cl_carrito
             $tiempo_preparacion = $Clproductos->getTiempoPreparacion($idsProducts);
             $this->logs[] = [ 'tiempo_preparacion' => $tiempo_preparacion ];
 
-            $tarifa_id = $this->getTarifaEnvio($idsProductosDisponibles, $cod_sucursal, $peso);
+            //Peso total de la orden
+            $pesoTotal = array_sum(array_map(
+                fn($p) => ($p['peso'] ?? 0) * $p['cantidad'], 
+                $idsProductosDisponibles
+            ));
+            $peso = $pesoTotal;
         }
         
         //OBSERVACIONES
@@ -360,7 +363,6 @@ class cl_carrito
         $this->total = $this->noRound($total, false, 2);
         $this->num_items = $num_items;
         $this->peso = $peso;
-        $this->tarifa_id = $tarifa_id;
         $this->tiempo_preparacion = $tiempo_preparacion;
         $this->observacion = $observacion;
     }
@@ -384,7 +386,6 @@ class cl_carrito
         $car['total'] = $this->total;
         $car['num_items'] = $this->num_items;
         $car['peso'] = $this->peso;
-        $car['tarifa_id'] = $this->tarifa_id;
         $car['tiempo_preparacion'] = $this->tiempo_preparacion;
         $car['promociones'] = $this->promocionesResp;
         $car['promocionesPruebas'] = $this->promociones;
@@ -680,54 +681,5 @@ class cl_carrito
     private function truncate($number, $digits){
         $truncate = 10**$digits;
         return intval($number * $truncate) / $truncate;
-    }
-    
-    //TARIFA
-    public function getTarifaEnvio($productos, $cod_sucursal, &$pesoTotal){
-        if(empty($productos)) return false;
-
-        $pesoTotal = array_sum(array_map(
-            fn($p) => ($p['peso'] ?? 0) * $p['cantidad'], 
-            $productos
-        ));
-
-        //Si solo es una tarifa retornamos esa
-        $query = "SELECT cod_tarifa FROM tb_tarifa WHERE cod_sucursal = ? LIMIT 2";
-        $tarifas = Conexion::buscarVariosRegistro($query, [$cod_sucursal]);
-        if(!$tarifas) return false;
-        $this->logs[] = [ 'tarifas' => $tarifas ];
-        if(count($tarifas) === 1){
-            return $tarifas[0]['cod_tarifa'];
-        }
-        
-        //Primero detectar productos con tarifa forzada
-        $ids = array_column($productos, 'cod_producto');
-        $allIds = implode(",",$ids);
-        $query = "
-            SELECT t.cod_tarifa
-            FROM tb_producto_tarifa_forzada ptf
-            INNER JOIN tb_tarifa t 
-                ON t.cod_tarifa = ptf.cod_tarifa
-            WHERE ptf.cod_producto IN ($allIds)
-            AND t.cod_sucursal = $cod_sucursal
-            ORDER BY 
-                t.peso_max_kg IS NULL DESC,  -- prioriza NULL (cuando solo hay una tarifa)
-                t.peso_max_kg DESC
-            LIMIT 1
-        ";
-        $tarifaForzada = Conexion::buscarRegistro($query);
-        if($tarifaForzada){
-            $this->logs[] = [ 'tarifaForzada' => $tarifaForzada ];
-            return $tarifaForzada['cod_tarifa'];
-        }
-
-        $query = "SELECT cod_tarifa
-            FROM tb_tarifa
-            WHERE cod_sucursal = ?
-            AND (peso_max_kg IS NULL OR peso_max_kg >= ?)
-            ORDER BY peso_max_kg ASC
-            LIMIT 1";
-        $tarifa = Conexion::buscarRegistro($query, [$cod_sucursal, $pesoTotal]);
-        return $tarifa ? $tarifa['cod_tarifa'] : null;
-    }
+    }  
 }
