@@ -4,18 +4,38 @@ class cl_productos
 {
 		var $cod_producto = 0, $cod_sucursal = 0, $officeTaxable = 1;
 		public $promosByProducto = [];
+		var $filtroEntrega;
 		
 		public function __construct($pcod_producto=null)
 		{
 			if($pcod_producto != null)
 				$this->cod_producto = $pcod_producto;
 			$this->cod_sucursal = sucursaldefault;
+			$this->filtroEntrega = $this->scopeDeliveryType();
 		}
 
 		public function setSucursal($cod_sucursal){
 		    $this->cod_sucursal = $cod_sucursal;
 			//Verificar si la sucursal grava iva
 			$this->officeTaxable = $this->sucursalGravaIva($cod_sucursal);
+		}
+
+		private function scopeDeliveryType() {
+			// Si la constante no está definida o es null, no filtramos nada
+			if (!defined('delivery_type') || delivery_type === null) {
+				return "";
+			}
+
+			switch (delivery_type) {
+				case 'delivery':
+					return " AND p.venta_delivery = 1";
+				case 'pickup':
+					return " AND p.venta_pickup = 1";
+				case 'onsite':
+					return " AND p.venta_mesa = 1";
+				default:
+					return "";
+			}
 		}
 		
 		public function first($id){
@@ -63,6 +83,7 @@ class cl_productos
 					WHERE p.estado IN ('A')
 					AND p.cod_sucursal IN(0, $cod_sucursal)
 					AND p.cod_producto = $cod_producto
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;
             $producto = Conexion::buscarRegistro($query);
             if($producto){
@@ -155,6 +176,7 @@ class cl_productos
 					AND p.estado IN ('A')
 					AND p.cod_producto_padre = 0
 					AND p.cod_sucursal IN(0, ".sucursaldefault.")
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;
             $resp = Conexion::buscarVariosRegistro($query);
             foreach ($resp as $key => $producto) {
@@ -173,6 +195,7 @@ class cl_productos
 					AND p.cod_producto_padre = 0
 					AND p.cod_sucursal IN(0, $cod_sucursal)
 					AND p.cod_empresa = ".cod_empresa."
+					$this->filtroEntrega
 					ORDER BY p.posicion";
             $resp = Conexion::buscarVariosRegistro($query);
             foreach ($resp as $key => $producto) {
@@ -192,6 +215,7 @@ class cl_productos
 		}
 		
 		public function listaBasicaByCategoria($cod_categoria){
+			//delivery_type puede ser pickup, delivery, onsite
 			$cod_sucursal = $this->cod_sucursal;
 			$query = "SELECT p.cod_producto, p.cod_producto_padre, p.alias, p.nombre, p.desc_corta, p.image_min, p.image_max, p.agotado_inicio, p.agotado_fin, p.cod_sucursal, p.precio_no_tax, p.iva_valor, p.precio, p.precio_anterior, p.open_detalle
 					FROM vw_producto_sucursal p, tb_productos_categorias pc
@@ -201,6 +225,7 @@ class cl_productos
 					AND p.cod_producto_padre = 0
 					AND p.cod_sucursal IN(0, $cod_sucursal)
 					AND p.cod_empresa = ".cod_empresa."
+					$this->filtroEntrega
 					ORDER BY p.posicion";
             $resp = Conexion::buscarVariosRegistro($query);
             $respAux = [];
@@ -231,6 +256,7 @@ class cl_productos
                         AND p.cod_producto_padre = 0
                         AND p.cod_sucursal IN (0, $cod_sucursal)
                         AND p.cod_empresa = ".cod_empresa."
+						$this->filtroEntrega
                         AND $condiciones_dia";
             $resp = Conexion::buscarRegistro($query);
             if($resp){
@@ -248,6 +274,7 @@ class cl_productos
 					AND p.cod_producto_padre = 0
 					AND p.nombre LIKE '%$busqueda%'
 					AND p.cod_sucursal IN(0,".$cod_sucursal.")
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;
 			
 			$query .= " UNION SELECT p.*
@@ -257,6 +284,7 @@ class cl_productos
 					AND p.cod_producto_padre = 0
 					AND pt.tag = '$busqueda'
 					AND p.cod_sucursal IN(0,".$cod_sucursal.")
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;		
             $resp = Conexion::buscarVariosRegistro($query);
             foreach ($resp as $key => $producto) {
@@ -276,6 +304,7 @@ class cl_productos
 					AND p.cod_producto_padre = 0
 					AND t.tag IN ($busqueda)
 					AND p.cod_sucursal IN(0,".$cod_sucursal.")
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;
 			$resp = Conexion::buscarVariosRegistro($query);
 			foreach ($resp as $key => $producto) {
@@ -294,6 +323,7 @@ class cl_productos
 					AND c.alias = '$alias'
 					AND p.cod_producto_padre = 0
 					AND p.cod_sucursal IN(0, $cod_sucursal)
+					$this->filtroEntrega
 					AND p.cod_empresa = ".cod_empresa;
             $resp = Conexion::buscarVariosRegistro($query);
             foreach ($resp as $key => $producto) {
@@ -336,6 +366,7 @@ class cl_productos
                     AND p.estado ='A' 
                     AND p.cod_sucursal IN(0,".$cod_sucursal.") 
                     AND c.cod_front_pagina_detalle = $cod_pagina_detalle
+					$this->filtroEntrega
                     AND p.cod_empresa = ".cod_empresa." ORDER BY c.posicion ASC";
             $resp = Conexion::buscarVariosRegistro($query);
             $respAux = [];

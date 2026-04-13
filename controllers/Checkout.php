@@ -103,7 +103,7 @@ function getInfoCheckout(){
                                 ? "Tu pedido demorará $preparation_time minutos en su preparación antes del salir del local" 
                                 : '';
     $pedido_express = false;
-    if(cod_empresa == 204 || cod_empresa == 70){
+    if(cod_empresa == 204){
         $pedido_express = [
             'title' => 'Pedido Express',
             'desc' => 'Enviaremos el pedido lo mas pronto posible',
@@ -214,20 +214,21 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
 		$addTime = true;
 		$hora_ini = $disponibilidad['hora_ini'];
         $hora_fin = $disponibilidad['hora_fin'];
-		if($isCurrentDay) {
+        $addInitTime = $minutes; //Asegurarnos de que no pueda ir a retirar un pedido ni bien apertura el local
+		if($isCurrentDay) { //Dia actual
 			$hi = hora_create($hora_ini);
 			$hc = hora();
 			if($hc > $hi) {
-				$hora_ini = getNextInterval();
-                $addInitTime = $minutes; //Sumar el primer intervalo
+				$hora_ini = getNextInterval(); //Sumar 5 minutos
 				if($tiempo_preparacion > $minutes){
                     $addInitTime = $tiempo_preparacion;
                 }
-                $hora_ini = sumarTiempoSeguro($hora_ini, $addInitTime);
-                if ($hora_ini === false)
-                    return [];
 			}
 		}
+
+        $hora_ini = sumarTiempoSeguro($hora_ini, $addInitTime);
+        if ($hora_ini === false)
+            return [];
         // $hora_fin = sumarTiempoSeguro($disponibilidad['hora_fin'], $minutes);
         
         $horas = [];
