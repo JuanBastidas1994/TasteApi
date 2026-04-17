@@ -74,7 +74,8 @@ class cl_ordenes
             $resp = Conexion::buscarVariosRegistro($query);   
             foreach ($resp as $key => $item) {
                 $resp[$key]['image_min'] = url.$item['image_min'];
-                $resp[$key]['opciones'] = json_decode($item['descripcion'], true);
+				$opciones = json_decode($item['descripcion'], true);
+				$resp[$key]['opciones'] = is_array($opciones) ? $opciones : [];
                 unset($resp[$key]['descripcion']);
             }    
             return $resp;
