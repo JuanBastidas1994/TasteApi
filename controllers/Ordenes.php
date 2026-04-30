@@ -516,6 +516,8 @@ function convertirPreorden(){
 	    
         if(!$preorden)
     	        throw new Exception('Preorden no existente');
+
+		$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
     	        
     	 //Validar si la preorden ya fue creada
     	 if($preorden['cod_orden'] != 0){
