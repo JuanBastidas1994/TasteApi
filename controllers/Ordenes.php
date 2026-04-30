@@ -121,9 +121,6 @@ function validarOrdenCorrecta(){
 	$metodoEnvio["referencia"] = sinComillas($metodoEnvio["referencia"]);
 	$input['metodoEnvio'] = $metodoEnvio;
 	
-// 	foreach ($input["productos"] as &$pr) {
-// 		$pr["comentarios"] = sinComillas($pr["comentarios"]);
-// 	}
 	$input["comentarios"] = sinComillas($input["comentarios"]);
 
 	/*USUARIO EXISTE*/
@@ -234,7 +231,10 @@ function validarOrdenCorrecta(){
 
 		// VALIDAR CANT MAX FORMA DE PAGO
 		if($tipo !== "P"){
-    		$q = "SELECT nombre, monto_maximo FROM tb_empresa_forma_pago WHERE cod_forma_pago = '$tipo' AND cod_empresa = " .cod_empresa;
+    		$q = "SELECT efp.nombre, COALESCE(sfp.monto_maximo, 0) as monto_maximo
+    		        FROM tb_empresa_forma_pago efp
+    		        LEFT JOIN tb_sucursal_forma_pago sfp ON sfp.cod_sucursal = $cod_sucursal AND sfp.cod_forma_pago = efp.cod_forma_pago
+    		        WHERE efp.cod_forma_pago = '$tipo' AND efp.cod_empresa = " . cod_empresa;
     		$r = Conexion::buscarRegistro($q);
     		if($r) {
     			if($r["monto_maximo"] > 0)
@@ -293,47 +293,54 @@ function validarOrdenCorrecta(){
 	}
 	/*FIN CANTIDAD*/
 
+	//VALIDACION DATOS DE SCUCURSAL Y ENVIO
 	/*SUCURSAL ABIERTA O DISPONIBLE*/
 	require_once "clases/cl_sucursales.php";
 	$ClSucursales = new cl_sucursales();
+
+	$office = $ClSucursales->get($cod_sucursal);
+	if(!$office){
+		showResponse([ 'success' => 0, 'mensaje' => "Sucursal inexistente", 'errorCode' => "SUCURSAL_INEXISTENTE" ]);
+	}
 	
-	//VALIDACION DATOS DE ENVIO
 	$hora = $metodoEnvio['hora'] ?? "";
+	$programado = (isset($metodoEnvio['programado'])) ? $metodoEnvio['programado'] : 0;
 	$tipo = $metodoEnvio['tipo'];
 	if(!in_array($tipo, ['delivery','envio', 'pickup', 'onsite'])){
 	    showResponse([ 'success' => 0, 'mensaje' => "Tipo de envío no permitido", 'errorCode' => "TIPO_ENVIO_NO_PERMIT" ]);
 	}
-	
-	if($tipo == "pickup" && $hora == ""){ //Pickup
-	    showResponse([ 'success' => 0, 'mensaje' => "En Pickup debes escoger una hora de retiro válida, por favor revisa la hora escogida", 'errorCode' => "PICKUP_HOUR_ERROR" ]);
+
+	if($tipo == 'pickup' && $hora == "")
+		showResponse([ 'success' => 0, 'mensaje' => "En Pickup debes escoger una hora de retiro válida, por favor revisa la hora escogida", 'errorCode' => "PICKUP_HOUR_ERROR" ]);
+
+	if ($tipo == 'pickup' || ($tipo == "delivery" && $programado == 1)) {
+		//Se podría buscar la hora de intervalos
+		$horaMinima = date('Y-m-d H:i:s', strtotime(fecha()) + ($office['intervalo'] * 60)); // 15 min mínimo
+		if (strtotime($hora) < strtotime($horaMinima)) {
+			showResponse([
+				'success'   => 0,
+				'mensaje'   => 'La hora de retiro ya pasó, por favor selecciona una nueva hora',
+				'errorCode' => 'PICKUP_HOUR_EXPIRED'
+			]);
+		}
 	}
 
 	$hora = ($hora !== "") ? $hora : fecha();
-		
 	//Si la fecha y hora escogida para la entrega es menor que la fecha y hora actual... la fecha y hora escogida sera la actual
 	if (strtotime($hora) < strtotime(fecha())) {
 		$hora = fecha();
 	}
 	
-	
-
-	$resp = $ClSucursales->get($cod_sucursal);
-	if ($resp) {
-	    if(cod_empresa != 204){ //Para 400 grados no debe validar si esta abierto o cerrado
-    		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
-    		if (!$disponibilidad) {
-    			$return['success'] = 0;
-    			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
-    			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
-    			showResponse($return);
-    		}
-	    }
-	} else {
-		$return['success'] = 0;
-		$return['mensaje'] = "Sucursal no existente";
-		$return['errorCode'] = "SUCURSAL_INEXISTENTE";
-		showResponse($return);
+	if(cod_empresa != 204){ //Para 400 grados no debe validar si esta abierto o cerrado
+		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
+		if (!$disponibilidad) {
+			$return['success'] = 0;
+			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
+			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
+			showResponse($return);
+		}
 	}
+	
 	/*SUCURSAL ABIERTA O DISPONIBLE*/
 	
 	
@@ -352,28 +359,59 @@ function validarOrdenCorrecta(){
 	$input['tax'] = $cart['percentIva'];
 	$input['service'] = $cart['service'];
 	
-	foreach($productos as $key => $producto){
-	    $productCart = findProductInCartByTime($cart['productos'], $producto['time']);
-	    if($productCart){
-	        $producto['opciones'] = $productCart['opciones'];
-	        $producto['precio'] = $productCart['precio'];
-	        $producto['precio_no_tax'] = $productCart['precio_no_tax'];
-	        $producto['base0'] = $productCart['base0'];
-	        $producto['base12'] = $productCart['base12'];
-	        $producto['subtotal0'] = $productCart['subtotal0'];
-	        $producto['subtotal12'] = $productCart['subtotal12'];
-	        $producto['adicional_total'] = $productCart['precio_adicional'];
-	        $producto['adicional_no_tax'] = $productCart['precio_adicional_no_tax'];
-	        $producto['adicional_no_tax_total'] = $productCart['precio_adicional_no_tax_total'];
-	        $producto['descuento'] = $productCart['descuento'];
-	        $producto['descuentoPorcentaje'] = $productCart['descuentoPorcentaje'];
-	        $producto['promocion'] = $productCart['promocion'];
-	        $producto['comentarios'] = sanitizeString($producto['comentarios']);
-	        $productos[$key] = $producto;
-	    }
+	foreach ($productos as $key => $producto) {
+		$productCart = findProductInCartByTime($cart['productos'], $producto['time']);
+		if (!$productCart) continue;
+
+		$productos[$key] = array_merge($producto, [
+			'opciones'               => $productCart['opciones'],
+			'precio'                 => $productCart['precio'],
+			'precio_no_tax'          => $productCart['precio_no_tax'],
+			'base0'                  => $productCart['base0'],
+			'base12'                 => $productCart['base12'],
+			'subtotal0'              => $productCart['subtotal0'],
+			'subtotal12'             => $productCart['subtotal12'],
+			'adicional_total'        => $productCart['precio_adicional'],
+			'adicional_no_tax'       => $productCart['precio_adicional_no_tax'],
+			'adicional_no_tax_total' => $productCart['precio_adicional_no_tax_total'],
+			'descuento'              => $productCart['descuento'],
+			'descuentoPorcentaje'    => $productCart['descuentoPorcentaje'],
+			'promocion'              => $productCart['promocion'],
+			'comentarios'            => sanitizeString($producto['comentarios']),
+			'cod_promocion'          => $productCart['cod_promocion'] ?? null, // 👈 nuevo
+		]);
 	}
-	$input['productos'] = $productos;
-	
+
+	$productsFree = $cart['productos_free'];
+	foreach($productsFree as $key => $productoFree){
+		$precioUnitario = $productoFree['precio_normal']; // precio real del producto
+		$cantidad       = $productoFree['cantidad'];
+		$descuentoTotal = number_format($precioUnitario * $cantidad, 2); // descuento = precio * cant
+
+		$productsFree[$key] = [
+			'id'                     => $productoFree['cod_producto'],
+			'cantidad'               => $cantidad,
+			'opciones'               => [],
+			'precio'                 => '0.00',
+			'precio_no_tax'          => '0.00',
+			'base0'                  => '0.00',
+			'base12'                 => '0.00',
+			'subtotal0'              => '0.00',
+			'subtotal12'             => '0.00',
+			'adicional_total'        => '0.00',
+			'adicional_no_tax'       => '0.00',
+			'adicional_no_tax_total' => '0.00',
+			'descuento'              => $descuentoTotal,
+			'descuentoPorcentaje'    => 100,
+			'promocion'              => $productoFree['motivo'],
+			'comentarios'            => sanitizeString($productoFree['motivo']),
+			'es_regalo'              => 1,           // para identificarlo en la orden
+			'cod_promocion'          => $productoFree['cod_promocion'],
+		];
+	}
+
+	// array_merge en vez de +
+	$input['productos'] = array_merge($productos, $productsFree);
     
     // Guardar Trama si el pago es con tarjeta..
 	// Para guradar las tildes correctamente json_encode( $text, JSON_UNESCAPED_UNICODE )
@@ -468,18 +506,12 @@ function getPreOrden($preordenId){
 	
 	$preorden = $Clordenes->getPreOrden($preordenId);
 	if(!$preorden){
-	    $return['success'] = 0;
-		$return['mensaje'] = "Preorden no existente";
-		$return['errorCode'] = "PREORDEN_INEXISTENTE";
-		showResponse($return);
+		showResponse(['success' => 0, 'mensaje' => 'Preorden no encontrada', 'errorCode' => 'PREORDEN_INEXISTENTE']);
 	}
 	
-	if($preorden['estado'] !== "VALIDADA" && $preorden['estado'] !== "CERRADA"){
-	    $return['success'] = 0;
-		$return['mensaje'] = "Esta preorden ya fue utilizada, por favor vuelve a abrir el modal de paymentez";
-		$return['errorCode'] = "PREORDEN_USADA";
-		showResponse($return);
-	}
+	// if($preorden['estado'] !== "VALIDADA" && $preorden['estado'] !== "CERRADA"){
+	// 	showResponse(['success' => 0, 'mensaje' => 'Esta preorden ya fue utilizada, por favor vuelve a abrir el modal de paymentez', 'errorCode' => 'PREORDEN_USADA']);
+	// }
 	
 	$ordenTrama = json_decode($preorden['json'], true);
 	
@@ -490,17 +522,22 @@ function getPreOrden($preordenId){
 	    if($pago['tipo'] == "T")
 	        $tarjeta = number_format($pago['monto'],2);
 	}
-	
-	$return['success'] = 1;
-	$return['mensaje'] = "Información de la PreOrden";
-	$return['usuario'] = $Clusuarios->get2($preorden['cod_usuario']);
-	$return['tarjeta'] = floatval($tarjeta);
-	$return['preorden'] = $ordenTrama;
+
+	showResponse([
+        'success' => 1,
+		'mensaje' => 'Información de la PreOrden',
+        'data' => $preorden,
+		'usuario'=> $Clusuarios->get2($preorden['cod_usuario']),
+		'tarjeta' => floatval($tarjeta),
+		'preorden' => $ordenTrama
+    ]);
 	return $return;
 }
 
 function convertirPreorden(){
 	global $Clordenes;
+
+	// throw new Exception('ERROR!!!');
 	
 	$input = validateInputs(array("cod_preorden", "paymentId", "paymentAuth", "paymentProvider"));
 	extract($input);
@@ -529,18 +566,33 @@ function convertirPreorden(){
     	 }
 
 		$total = 0;
+		
+		//Convertir preorden
 		require_once "helpers/preorderConvert.php";
 	    $id = storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, $total);
-	    
-	    require_once "helpers/notificationsToClient.php";
-		notifyNewOrder($id);
-	    
-		require_once "helpers/pixelFacebook.php";
-		trackPurchaseServer($id);
 
+		//Notificar al cliente
+		try {
+			require_once "helpers/notificationsToClient.php";
+			notifyNewOrder($id);
+		} catch (Exception $e) {
+			logAdd("Error notifyNewOrder orden $id: " . $e->getMessage(), "error", "post-orden");
+		}
 
-		validarCuponera($id); //Cuponera Furiast
+	    //Pixel de Facebook
+		try {
+			require_once "helpers/pixelFacebook.php";
+			trackPurchaseServer($id);
+		} catch (Exception $e) {
+			logAdd("Error trackPurchaseServer orden $id: " . $e->getMessage(), "error", "post-orden");
+		}
 
+		//Cuponera Furiast
+		try {
+			validarCuponera($id); 
+		} catch (Exception $e) {
+			logAdd("Error validarCuponera orden $id: " . $e->getMessage(), "error", "post-orden");
+		}
 		
 		return [
 		    'success' => 1,

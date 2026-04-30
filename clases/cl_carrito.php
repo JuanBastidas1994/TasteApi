@@ -18,7 +18,7 @@ class cl_carrito
     public $numDecimals = 2;
     public $observacion = "";
 
-    public $promociones = [], $promocionesResp = [];
+    public $promociones = [], $promocionesResp = [], $productos_free = [];
     public $descuentoAux = 0;
 
     public $desc_envio, $subtotal_only_products, $subtotal_without_envio;
@@ -78,7 +78,9 @@ class cl_carrito
             if($array['cupon'] !== "")
                 $cupon = $array['cupon'];
         }
-        $Clproductos->promosByProducto = $Clproductos->getPromocionesActivas($cod_sucursal);
+        $promoData = $Clproductos->getPromocionesActivas($cod_sucursal);
+        $Clproductos->promosByProducto = $promoData['normales'];   // igual que antes
+        $promosAvanzadas = $promoData['avanzadas'];                 // nuevo
 
         $x = 0;
         if (is_array($productos))
@@ -148,6 +150,7 @@ class cl_carrito
                             $totalItem = $this->noRound($totalNoDiscount - $descuentoItem, false);
                         }
                     }
+                    $items[$x]['cod_promocion'] = $promocion ? $promocion['cod_promocion'] : null;
                     $descuento = $this->noRound($descuento + $descuentoItem, false);
                     $descuento_no_tax = $this->noRound($descuento_no_tax + $descuentoItemWithoutTax, false);
                     $items[$x]['descuento'] = $this->noRound($descuentoItem, false);
@@ -223,6 +226,64 @@ class cl_carrito
             }
         }
         //FIN DESCUENTO
+
+        /*==========================================================
+        CALCULAR PRODUCTOS FREE (promos avanzadas)
+        Se evalúa después de tener todos los items procesados
+        ==========================================================*/
+        $productos_free = [];
+
+        foreach ($promosAvanzadas as $promoAv) {
+
+            if (!$promoAv['cod_producto_regalo']) continue;
+
+            $tipo          = $promoAv['texto'];
+            $participantes = $promoAv['productos_participantes']; // array de cod_producto
+            $cantidadRegalo = 0;
+
+            if ($tipo === 'compra_x_lleva_y') {
+                // Contar cuántas unidades de productos participantes hay en el carrito
+                // Por cada unidad participante → 1 producto regalo
+                foreach ($items as $item) {
+                    if (in_array($item['cod_producto'], $participantes)) {
+                        $cantidadRegalo += $item['cantidad'];
+                    }
+                }
+
+            } elseif ($tipo === 'monto_minimo') {
+                // Sumar el subtotal (con descuentos ya aplicados) de productos participantes
+                // Si supera el monto mínimo → 1 producto regalo fijo
+                $subtotalParticipantes = 0;
+                foreach ($items as $item) {
+                    if (in_array($item['cod_producto'], $participantes)) {
+                        $subtotalParticipantes += $item['total'];
+                    }
+                }
+                $cantidadRegalo = ($subtotalParticipantes >= floatval($promoAv['valor'])) ? 1 : 0;
+            }
+
+            if ($cantidadRegalo <= 0) continue;
+
+            // Obtener info básica del producto regalo para mostrarlo en frontend
+            $infoRegalo = $Clproductos->getInfoBasic($promoAv['cod_producto_regalo'], $cod_sucursal);
+
+            if (!$infoRegalo) continue;
+
+            $productos_free[] = [
+                'cod_producto'   => $promoAv['cod_producto_regalo'],
+                'nombre'         => $infoRegalo['nombre'],
+                'imagen'         => $infoRegalo['image_min'],
+                'cantidad'       => $cantidadRegalo,
+                'precio_normal'  => $infoRegalo['precio'],
+                'motivo'         => $promoAv['descripcion'],
+                'tipo_promo'     => $tipo,
+                'cod_promocion'  => $promoAv['cod_promocion'],
+                'fecha_fin'      => $promoAv['fecha_fin'],
+            ];
+        }
+
+        $this->productos_free = $productos_free;
+        /*========================================================== FIN */
         
         $idsProductosDisponibles = [];
         $productosNoDisponibles = 0;
@@ -368,6 +429,7 @@ class cl_carrito
     public function getArray()
     {
         $car['productos'] = $this->productos;
+        $car['productos_free'] = $this->productos_free;
         $car['base0'] = $this->base0;
         $car['base12'] = $this->base12;
         $car['subtotal'] = $this->subtotal;

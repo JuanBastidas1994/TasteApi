@@ -603,17 +603,12 @@ class cl_productos
 			$diaNumero = date('N');
 
 			$dias = [
-				1 => 'lunes',
-				2 => 'martes',
-				3 => 'miercoles',
-				4 => 'jueves',
-				5 => 'viernes',
-				6 => 'sabado',
-				7 => 'domingo'
+				1 => 'lunes', 2 => 'martes',  3 => 'miercoles',
+				4 => 'jueves', 5 => 'viernes', 6 => 'sabado', 7 => 'domingo'
 			];
 
 			$dia = $dias[$diaNumero];
-			$deliveryType = delivery_type; // constante global
+			$deliveryType = delivery_type;
 
 			$query = "
 				SELECT 
@@ -627,44 +622,33 @@ class cl_productos
 					p.fecha_fin,
 					p.cantidad
 				FROM promociones p
-				INNER JOIN promocion_producto pp 
-					ON p.cod_promocion = pp.cod_promocion
-				INNER JOIN promocion_sucursal ps 
-					ON p.cod_promocion = ps.cod_promocion
+				INNER JOIN promocion_producto pp ON p.cod_promocion = pp.cod_promocion
+				INNER JOIN promocion_sucursal ps ON p.cod_promocion = ps.cod_promocion
 				WHERE
 					ps.cod_sucursal = :cod_sucursal
 					AND p.cod_empresa = :cod_empresa
 					AND :fecha BETWEEN p.fecha_inicio AND p.fecha_fin
 					AND p.estado = 'A'
-					
 					AND (
 						NOT EXISTS (
-							SELECT 1
-							FROM promocion_recurrente pr2
+							SELECT 1 FROM promocion_recurrente pr2
 							WHERE pr2.cod_promocion = p.cod_promocion
 						)
-						OR
-						EXISTS (
-							SELECT 1
-							FROM promocion_recurrente pr
+						OR EXISTS (
+							SELECT 1 FROM promocion_recurrente pr
 							WHERE pr.cod_promocion = p.cod_promocion
 							AND pr.dia_semana = :dia
 							AND :hora BETWEEN pr.hora_inicio AND pr.hora_fin
 						)
 					)
-
 					AND (
 						:delivery_type IS NULL
-						OR
-						NOT EXISTS (
-							SELECT 1
-							FROM promocion_tipo_entrega pte2
+						OR NOT EXISTS (
+							SELECT 1 FROM promocion_tipo_entrega pte2
 							WHERE pte2.cod_promocion = p.cod_promocion
 						)
-						OR
-						EXISTS (
-							SELECT 1
-							FROM promocion_tipo_entrega pte
+						OR EXISTS (
+							SELECT 1 FROM promocion_tipo_entrega pte
 							WHERE pte.cod_promocion = p.cod_promocion
 							AND pte.tipo_entrega = :delivery_type
 						)
@@ -672,23 +656,59 @@ class cl_productos
 			";
 
 			$params = [
-				':cod_sucursal' => $cod_sucursal,
-				':cod_empresa'  => cod_empresa,
-				':fecha'        => $fecha,
-				':hora'         => $hora,
-				':dia'          => $dia,
-				':delivery_type'=> $deliveryType
+				':cod_sucursal'  => $cod_sucursal,
+				':cod_empresa'   => cod_empresa,
+				':fecha'         => $fecha,
+				':hora'          => $hora,
+				':dia'           => $dia,
+				':delivery_type' => $deliveryType
 			];
 
 			$result = Conexion::buscarVariosRegistro($query, $params);
-			$promosByProducto = [];
+
+			$promosByProducto  = [];  // promos normales: porcentaje / NxM
+			$promosAvanzadas   = [];  // promos avanzadas: compra_x_lleva_y / monto_minimo (indexadas por cod_promocion)
+
 			if ($result) {
 				foreach ($result as $promo) {
-					$promosByProducto[$promo['cod_producto']] = $promo;
+					$tipo = $promo['texto'];
+
+					if (in_array($tipo, ['compra_x_lleva_y', 'monto_minimo'])) {
+						// Agrupar productos participantes por cod_promocion
+						if (!isset($promosAvanzadas[$promo['cod_promocion']])) {
+							// Primera vez que vemos esta promo avanzada: cargar producto regalo
+							$regalo = Conexion::buscarRegistro(
+								"SELECT cod_producto_regalo, cantidad_regalo
+								FROM promocion_recompensa
+								WHERE cod_promocion = :cod LIMIT 1",
+								[':cod' => $promo['cod_promocion']]
+							);
+
+							$promosAvanzadas[$promo['cod_promocion']] = [
+								'cod_promocion'       => $promo['cod_promocion'],
+								'descripcion'         => $promo['descripcion'],
+								'texto'               => $tipo,
+								'valor'               => $promo['valor'], // monto mínimo si aplica
+								'fecha_fin'           => $promo['fecha_fin'],
+								'cod_producto_regalo' => $regalo ? $regalo['cod_producto_regalo'] : null,
+								'cantidad_regalo'     => $regalo ? $regalo['cantidad_regalo'] : 1,
+								'productos_participantes' => [],
+							];
+						}
+						// Acumular productos participantes
+						$promosAvanzadas[$promo['cod_promocion']]['productos_participantes'][] = $promo['cod_producto'];
+
+					} else {
+						// Promo normal: porcentaje o NxM — igual que antes
+						$promosByProducto[$promo['cod_producto']] = $promo;
+					}
 				}
 			}
 
-			return $promosByProducto;
+			return [
+				'normales'   => $promosByProducto,   // keyed by cod_producto
+				'avanzadas'  => array_values($promosAvanzadas), // array plano
+			];
 		}
 
 		private function getEventoProducto($cod_producto) {

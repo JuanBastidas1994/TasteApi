@@ -107,23 +107,6 @@ class Conexion {
             return false;
         }    
     }
-    
-    
-    public static function logsLogin($cod_user,$success)
-    {
-    
-        $LogsLogin =new RegisterLogs();
-        $return = $LogsLogin->login($cod_user,$success);  
-        return $return;
-    }
-    
-    public static function logs($tipo,$accion,$datelle,$medio,$cod_user)
-    {
-    
-        $LogsLog =new RegisterLogs();
-        $return = $LogsLog->logsGeneral($tipo,$accion,$datelle,$medio,$cod_user);
-        return $return;
-    }
 
     public static function lastId()
     {

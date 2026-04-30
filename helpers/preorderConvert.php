@@ -19,6 +19,10 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	if($preorden['estado'] !== "VALIDADA" && $preorden['estado'] !== "CERRADA"){
 	    throw new Exception('Esta preorden ya fue utilizada, por favor pulsa el boton procesar pago nuevamente');
 	}
+
+	//De una asignar paymentId y PaymentAuth
+    logAdd("Antes de crear orden | preorden=$cod_preorden | provider=$paymentProvider | paymentId=$paymentId | paymentAuth=$paymentAuth", "debug", "store-preorder");
+	$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
 	
 	$ordenTrama = json_decode($preorden['json'], true);
 	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE
@@ -43,8 +47,6 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	//Ver si es una orden alta demanda
 	$altaDemanda = $Clsucursales->getAltaDemanda($cod_sucursal);
 	$ordenTrama['alta_demanda'] = ($altaDemanda) ? 1 : 0;
-	
-	$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
 	if ($Clordenes->crear($ordenTrama, $cod_usuario, $id)) {
 
 		// DATOS FACTURACION NUEVO
@@ -78,7 +80,16 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 
 		$sonidoAutosignacion = validarSonidoAutoasignacion($ordenTrama['metodoEnvio']["hora"]);
 
-		$Clordenes->addOrdenFirebase($id, $cod_sucursal, $total, $metodopago, $envio, $sonidoAutosignacion["minutos"], $sonidoAutosignacion["sonar"], $sonidoAutosignacion["auto_asignar"]);
+		try {
+			$Clordenes->addOrdenFirebase(
+				$id, $cod_sucursal, $total, $metodopago, 
+				$envio, $sonidoAutosignacion["minutos"], 
+				$sonidoAutosignacion["sonar"], 
+				$sonidoAutosignacion["auto_asignar"]
+			);
+		} catch (Exception $e) {
+			logAdd("Firebase falló orden=$id: " . $e->getMessage(), "error", "store-preorder");
+		}
 		
 		return $id;
 	}else{

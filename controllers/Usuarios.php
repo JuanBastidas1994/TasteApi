@@ -654,9 +654,13 @@ function add_phone(){
     if(!isset($input['otp'])){ //Generar el OTP
         $code = codeNumber();
         if($Clusuarios->setUserCodePhone($cod_usuario, $code)){
-            require_once "clases/cl_ultramsg.php";
-            $ClMessages = new cl_ultramsg();
+			
+            require_once "clases/cl_whatsapp_business.php";
+            $ClMessages = new cl_whatsapp_business();
+            // require_once "clases/cl_ultramsg.php";
+            // $ClMessages = new cl_ultramsg();
             $message = $ClMessages->sendOTP($phone, $code);
+			return [ 'success' => 1,  'mensaje' => 'Debio enviar mensaje', 'data' => $message, 'phone'=>$phone, 'code' => $code ];
             $sent = isset($message['sent']) ? $message['sent'] : false;
             if($sent){
                 $return['success'] = 1;

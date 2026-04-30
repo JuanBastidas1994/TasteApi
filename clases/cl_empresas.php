@@ -131,8 +131,8 @@ class cl_empresas
 		public function getFormasPagoEmpresa($tipoEnvio = "", $hideCard = false, $saveCard = false, $imgTransfer="", $office_id = 0) {
 			$cod_empresa = cod_empresa;
 			$filtro = "";
-			$filtro = ($tipoEnvio == "envio") ? " AND efp.is_delivery = 1 " : " AND efp.is_pickup = 1 ";
-			
+			$filtro = ($tipoEnvio == "envio") ? " AND COALESCE(sfp.is_delivery, 1) = 1 " : " AND COALESCE(sfp.is_pickup, 1) = 1 ";
+
 			if($hideCard)
 			    $filtro .= " AND fp.cod_forma_pago NOT IN('T') ";
 			if($office_id == 345){ //thesmartroll la marquesa
@@ -141,17 +141,18 @@ class cl_empresas
 			if($office_id == 324){ //Rollit quito
 			    $filtro .= " AND fp.cod_forma_pago NOT IN('E') ";
 			}
-			
-            $query = "SELECT efp.cod_forma_pago, efp.descripcion, efp.nombre, efp.is_delivery, efp.is_pickup
-                        FROM tb_empresa_forma_pago efp, tb_formas_pago fp
-                        WHERE efp.cod_forma_pago = fp.cod_forma_pago
-                        AND efp.estado = 'A'
+
+            $query = "SELECT efp.cod_forma_pago, efp.nombre, COALESCE(sfp.descripcion, '') as descripcion
+                        FROM tb_empresa_forma_pago efp
+                        INNER JOIN tb_formas_pago fp ON efp.cod_forma_pago = fp.cod_forma_pago
+                        LEFT JOIN tb_sucursal_forma_pago sfp ON sfp.cod_sucursal = $office_id AND sfp.cod_forma_pago = efp.cod_forma_pago
+                        WHERE efp.estado = 'A'
                         AND efp.cod_empresa = $cod_empresa
-						$filtro 
-						ORDER BY efp.posicion ASC";
+                        AND (sfp.cod_sucursal_forma_pago IS NULL OR sfp.estado = 'A')
+						$filtro";
             $resp = Conexion::buscarVariosRegistro($query);
             foreach($resp as $key => $item){
-                $resp[$key]['descripcion'] = "";
+                // $resp[$key]['descripcion'] = "";
 				$resp[$key]['imagen'] = "";
 				$resp[$key]['tipo'] = "";
 				$resp[$key]['save_card'] = false;

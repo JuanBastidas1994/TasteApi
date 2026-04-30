@@ -155,7 +155,8 @@ function productosBasico($cod_sucursal = 0){
     global $Clproductos;
 
     $Clproductos->cod_sucursal = $cod_sucursal;
-	$Clproductos->promosByProducto = $Clproductos->getPromocionesActivas($cod_sucursal);
+	$promoData = $Clproductos->getPromocionesActivas($cod_sucursal);
+    $Clproductos->promosByProducto = $promoData['normales'];
 
     $categorias = $Clcategorias->listaBasica();
 
