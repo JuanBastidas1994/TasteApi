@@ -46,11 +46,65 @@ class cl_payphone
         ));
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
         $result = curl_exec($curl);
+
+        if($result === false){
+            $error = curl_error($curl);
+            curl_close($curl);
+            return [
+                "success" => false,
+                "error" => "cURL error",
+                "detalle" => $error
+            ];
+        }
+
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
-        
-        //En la variable result obtienes todos los parámetros de respuesta
-        $return["respuesta_payphone"] = json_decode($result, true);
-        return $return;
+
+        $respuesta = json_decode($result, true);
+
+        //Verificar si la respuesta es un JSON valido
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [
+                "success" => false,
+                "error" => "JSON inválido",
+                "raw" => $result
+            ];
+        }
+
+        //Verificar estado de la respuesta de Payphone
+        if ($httpCode !== 200) {
+            return [
+                "success" => false,
+                "error" => "HTTP error",
+                "http_code" => $httpCode,
+                "respuesta" => $respuesta
+            ];
+        }
+
+        if (isset($respuesta['errorCode'])) {
+            return [
+                "success" => false,
+                "error" => "PayPhone error",
+                "errorCode" => $respuesta['errorCode'],
+                "message" => $respuesta['message'] ?? "",
+                "data" => $respuesta
+            ];
+        }
+
+        if (!isset($respuesta['transactionStatus']) || $respuesta['transactionStatus'] !== 'Approved') {
+            return [
+                "success" => false,
+                "error" => "Transacción no aprobada",
+                "statusCode" => $respuesta['statusCode'] ?? null,
+                "transactionStatus" => $respuesta['transactionStatus'] ?? null,
+                "data" => $respuesta
+            ];
+        }
+
+        return [
+            "success" => true,
+            "data" => $respuesta
+        ];
     }
 
     function existPayment($idPayphone, $idClientPayphone){
