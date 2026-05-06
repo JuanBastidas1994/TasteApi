@@ -124,10 +124,10 @@ function debitPaymentCard($paymentProvider, &$paymentId, &$paymentAuth, $cod_suc
 	        throw new Exception('El pago y la orden ya existen, intente nuevamente');
 	        
 	    $payment = $Clpayphone->approvedPayment($paymentId, $paymentAuth);
+		logAdd(json_encode($payment),"Respuesta Payphone","crear-orden-payphone");
 	    
-	    if (isset($payment["respuesta_payphone"]["errorCode"]))
+	    if (!$payment["success"])
 	        throw new Exception('No se pudo generar el cobro '.json_encode($payment));
-	       // throw new Exception('No se pudo generar el cobro '.$payment["respuesta_payphone"]["errorCode"]);
     }
     return true;
 }
