@@ -38,6 +38,7 @@ class cl_ordenes
             $resp = Conexion::buscarVariosRegistro($query);
             if ($resp){
 	             foreach ($resp as $key => $detalle) {
+					$resp[$key]['id'] =  generarTracking($detalle['cod_orden']);
 	             	$resp[$key]['fecha'] = hoursAgo($detalle['fecha']);
 	             	$resp[$key]['num_items'] = $this->numItemsOrder($detalle['cod_orden']);
 	             	$resp[$key]['calificacion'] = $this->calificationOrder($detalle['cod_orden']);
@@ -395,12 +396,13 @@ class cl_ordenes
 							$es_regalo
                         ];
                         Conexion::ejecutar($sql, $data);
+						$detalleId = Conexion::lastId();
 
 						//EVENTO
 						$eventDay = isset($producto['eventDay']) ? $producto['eventDay'] : false;
 						if($eventDay){
-							$sql = "INSERT INTO tb_orden_evento (cod_orden, dia) VALUES (?, ?)";
-							$data = [ $id, $eventDay ];
+							$sql = "INSERT INTO tb_orden_evento (cod_orden, cod_orden_detalle, dia, cod_producto) VALUES (?, ?, ?, ?)";
+							$data = [ $id, $detalleId, $eventDay, $codigo ];
 							Conexion::ejecutar($sql, $data);
 						}
 					}

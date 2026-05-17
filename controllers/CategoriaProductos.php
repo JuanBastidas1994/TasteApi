@@ -192,10 +192,17 @@ function productosBasico($cod_sucursal = 0){
         array_unshift($respCategorias, $categoriaPromo);
     }
 
+	//Imagenes de las promociones vigentes
+	$imagenes = array_merge(
+		array_column($promoData['normales'], 'imagen'), array_column($promoData['avanzadas'], 'imagen')
+	);
+	$imagenes = array_map(fn($img) => url . $img, $imagenes);
+
     return [
         'success' => 1,
         'mensaje' => 'Lista de productos con informacion basica',
-        'data'    => $respCategorias
+        'data'    => $respCategorias,
+		'promos_img' => array_values(array_unique($imagenes))
     ];
 }
 

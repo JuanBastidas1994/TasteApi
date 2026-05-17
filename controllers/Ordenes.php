@@ -18,26 +18,18 @@ $Clsucursales = new cl_sucursales();
 
 if ($method == "GET") {
 	$num_variables = count($request);
-	// if($num_variables == 1){
-	// 	$strategyClass = ClientFirstOrderValues::STRATEGY[0];
-	// 	$resp = (new $strategyClass)->setAward(120);
-	// 	showResponse([ 'success' => 2, 'data' => $resp ]);
-	// }
+	if($num_variables == 1){
+		// $strategyClass = ClientFirstOrderValues::STRATEGY[0];
+		// $resp = (new $strategyClass)->setAward(120);
+		// showResponse([ 'success' => 2, 'data' => $resp ]);
+		if(user_id == null){
+			showResponse([ 'success' => 0, 'mensaje' => 'No autenticado' ]);
+		}
+		listOrderUser(user_id);
+	}
 	if ($num_variables == 2) {
 		$cod_usuario = $request[1];
-		$ordenes = $Clordenes->listaByUser($cod_usuario);
-		if ($ordenes) {
-			array_walk_recursive($ordenes, function (&$toDecode) {
-				$toDecode = html_entity_decode($toDecode);
-			});
-			$return['success'] = 1;
-			$return['mensaje'] = "Correcto";
-			$return['data'] = $ordenes;
-		} else {
-			$return['success'] = 0;
-			$return['mensaje'] = "No hay datos";
-		}
-		showResponse($return);
+		listOrderUser($cod_usuario);
 	} else if ($num_variables == 3) {
 		if ($request[1] == "id") {
 			$cod_orden = $request[2];
@@ -103,6 +95,23 @@ if ($method == "GET") {
 } else {
 	$return['success'] = 0;
 	$return['mensaje'] = "El metodo " . $method . " para Ordenes aun no esta disponible.";
+	showResponse($return);
+}
+
+function listOrderUser($cod_usuario){
+	global $Clordenes;
+	$ordenes = $Clordenes->listaByUser($cod_usuario);
+	if ($ordenes) {
+		array_walk_recursive($ordenes, function (&$toDecode) {
+			$toDecode = html_entity_decode($toDecode);
+		});
+		$return['success'] = 1;
+		$return['mensaje'] = "Correcto";
+		$return['data'] = $ordenes;
+	} else {
+		$return['success'] = 0;
+		$return['mensaje'] = "No hay datos";
+	}
 	showResponse($return);
 }
 
@@ -392,7 +401,7 @@ function validarOrdenCorrecta(){
 			'id'                     => $productoFree['cod_producto'],
 			'cantidad'               => $cantidad,
 			'opciones'               => [],
-			'precio'                 => '0.00',
+			'precio'                 => $precioUnitario,
 			'precio_no_tax'          => '0.00',
 			'base0'                  => '0.00',
 			'base12'                 => '0.00',
@@ -596,7 +605,7 @@ function convertirPreorden(){
 		
 		return [
 		    'success' => 1,
-		    'id' => $id,
+		    'id' => generarTracking($id),
 		    'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
 		    'detalle' => 'Orden creada correctamente',
 			'preorden' => $preorden,
@@ -807,16 +816,16 @@ function convertirPreordenToken(){
 			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2, $total);
 			require_once "helpers/notificationsToClient.php";
 			notifyNewOrder($id);
-			return [ 
-				'success' => 1, 
-				'id' => $id, 
-				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', 
+			return [
+				'success' => 1,
+				'id' => generarTracking($id),
+				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
 				'total' => $total
 			];
 		}else if($transaction['status'] == 'pending'){
 			if($transaction['status_detail'] == 35 || $transaction['status_detail'] == 36){ //Se requiere desafío
 			    if(!isset($resp['3ds'])) throw new Exception('No es una orden 3DS');
-			    
+
 				$Clordenes->setPaymentIdPreOrden($cod_preorden, $transaction['id']);
 				$challenge = $resp['3ds']['browser_response'];
 				return [
@@ -902,10 +911,10 @@ function verifyTransaction(){
 			$id = storePreorder($preorden, $transaction['id'], $transaction['authorization_code'], 2, $total);
 			require_once "helpers/notificationsToClient.php";
 			notifyNewOrder($id);
-			return [ 
-				'success' => 1, 
-				'id' => $id, 
-				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes', 
+			return [
+				'success' => 1,
+				'id' => generarTracking($id),
+				'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
 				'total' => $total
 			];
 		}else if($transaction['status'] == 'pending'){

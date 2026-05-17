@@ -156,6 +156,7 @@ class cl_productos
 		}
 		
 		public function getTiempoPreparacion($ids){
+			// var_dump($ids);
 		    if (empty($ids)) {
                 return 0;
             }
@@ -620,7 +621,8 @@ class cl_productos
 					p.texto,
 					p.fecha_inicio,
 					p.fecha_fin,
-					p.cantidad
+					p.cantidad,
+					p.imagen
 				FROM promociones p
 				INNER JOIN promocion_producto pp ON p.cod_promocion = pp.cod_promocion
 				INNER JOIN promocion_sucursal ps ON p.cod_promocion = ps.cod_promocion
@@ -690,6 +692,7 @@ class cl_productos
 								'texto'               => $tipo,
 								'valor'               => $promo['valor'], // monto mínimo si aplica
 								'fecha_fin'           => $promo['fecha_fin'],
+								'imagen'       		  => $promo['imagen'],
 								'cod_producto_regalo' => $regalo ? $regalo['cod_producto_regalo'] : null,
 								'cantidad_regalo'     => $regalo ? $regalo['cantidad_regalo'] : 1,
 								'productos_participantes' => [],
