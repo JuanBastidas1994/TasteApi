@@ -38,6 +38,7 @@ class cl_ordenes
             $resp = Conexion::buscarVariosRegistro($query);
             if ($resp){
 	             foreach ($resp as $key => $detalle) {
+					$resp[$key]['id'] =  generarTracking($detalle['cod_orden']);
 	             	$resp[$key]['fecha'] = hoursAgo($detalle['fecha']);
 	             	$resp[$key]['num_items'] = $this->numItemsOrder($detalle['cod_orden']);
 	             	$resp[$key]['calificacion'] = $this->calificationOrder($detalle['cod_orden']);
@@ -346,6 +347,8 @@ class cl_ordenes
 						$adicional_total = (isset($producto['adicional_total'])) ? $producto['adicional_total'] : 0;
 						$adicional_no_tax = (isset($producto['adicional_no_tax'])) ? $producto['adicional_no_tax'] : 0;
 						$adicional_no_tax_total = (isset($producto['adicional_no_tax_total'])) ? $producto['adicional_no_tax_total'] : 0;
+						$cod_promocion = isset($producto['cod_promocion']) ? intval($producto['cod_promocion']) : 'NULL';
+						$es_regalo = isset($producto['es_regalo'])     ? intval($producto['es_regalo'])     : 0;
 						
 						$desc_text = "";
 						$precio = $producto['precio'];
@@ -367,8 +370,8 @@ class cl_ordenes
                             cod_orden, cod_producto, descripcion, comentarios, precio, precio_no_tax,
                             cantidad, base_0, base_12, descuento_porcentaje, descuento,
                             subtotal_12, subtotal_0, desc_text, precio_final, adicional_total, 
-                            adicional_no_tax_unidad, adicional_no_tax_total
-                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+                            adicional_no_tax_unidad, adicional_no_tax_total,cod_promocion, es_regalo
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
                         
                         $data = [
                             $id,
@@ -388,15 +391,18 @@ class cl_ordenes
                             $precio_total,
                             $adicional_total,
                             $adicional_no_tax,
-                            $adicional_no_tax_total
+                            $adicional_no_tax_total,
+							$cod_promocion === 'NULL' ? null : $cod_promocion,
+							$es_regalo
                         ];
                         Conexion::ejecutar($sql, $data);
+						$detalleId = Conexion::lastId();
 
 						//EVENTO
 						$eventDay = isset($producto['eventDay']) ? $producto['eventDay'] : false;
 						if($eventDay){
-							$sql = "INSERT INTO tb_orden_evento (cod_orden, dia) VALUES (?, ?)";
-							$data = [ $id, $eventDay ];
+							$sql = "INSERT INTO tb_orden_evento (cod_orden, cod_orden_detalle, dia, cod_producto) VALUES (?, ?, ?, ?)";
+							$data = [ $id, $detalleId, $eventDay, $codigo ];
 							Conexion::ejecutar($sql, $data);
 						}
 					}
@@ -422,6 +428,7 @@ class cl_ordenes
 				}
 			} catch (\Throwable $th) {
 				$con->rollBack();
+				logAdd("crear() Throwable | orden usuario=$cod_usuario sucursal=$cod_sucursal | " . $th->getMessage(), "error", "crear-orden");
 				return false;
 			}
 		}

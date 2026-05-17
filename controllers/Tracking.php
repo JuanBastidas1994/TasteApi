@@ -12,9 +12,15 @@ $Clusuarios = new cl_usuarios();
 	if($method == "GET"){
 		$num_variables = count($request);
 		if($num_variables == 2){
-			if($request[0] == "tracking"){
-				$cod_orden = $request[1];
-				$return = tracking($cod_orden);
+			$cod_orden = $request[1];
+			$return = tracking($cod_orden);
+			showResponse($return);
+		}
+		if($num_variables == 3){
+			if($request[1] == "v2"){
+				$cod_orden = $request[2];
+				$orden_original = decodificarTracking($cod_orden);
+				$return = tracking($orden_original);
 			    showResponse($return);
 			}
 		}

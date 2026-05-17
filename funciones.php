@@ -734,6 +734,26 @@ function normalizarTelefono($telefono) {
     return null;
 }
 
+function generarTracking($cod_orden) {
+    $sig = substr(hash_hmac('sha256', (string)$cod_orden, TRACKING_SECRET), 0, 12);
+    return rtrim(base64_encode($cod_orden . '.' . $sig), '=');
+}
+
+function decodificarTracking($token) {
+    $padded = str_pad($token, strlen($token) + (4 - strlen($token) % 4) % 4, '=');
+    $decoded = base64_decode($padded, true);
+    if ($decoded === false) return false;
+
+    $parts = explode('.', $decoded, 2);
+    if (count($parts) !== 2 || !is_numeric($parts[0])) return false;
+
+    [$cod_orden, $sig] = $parts;
+    $expected = substr(hash_hmac('sha256', $cod_orden, TRACKING_SECRET), 0, 12);
+    if (!hash_equals($expected, $sig)) return false;
+
+    return (int)$cod_orden;
+}
+
 ob_end_flush();
 
  
