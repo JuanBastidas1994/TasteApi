@@ -196,7 +196,8 @@ function productosBasico($cod_sucursal = 0){
 	$imagenes = array_merge(
 		array_column($promoData['normales'], 'imagen'), array_column($promoData['avanzadas'], 'imagen')
 	);
-	$imagenes = array_map(fn($img) => url . $img, $imagenes);
+	$imagenes = array_filter($imagenes, fn($img) => $img !== ""); //Eliminar vacías
+	$imagenes = array_map(fn($img) => url . $img, $imagenes); //Agregar URL
 
     return [
         'success' => 1,
