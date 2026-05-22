@@ -539,7 +539,8 @@ class cl_productos
 					p.texto,
 					p.fecha_inicio,
 					p.fecha_fin,
-					p.cantidad
+					p.cantidad,
+					p.is_distintivo
 				FROM promociones p
 				INNER JOIN promocion_producto pp 
 					ON p.cod_promocion = pp.cod_promocion
@@ -622,7 +623,8 @@ class cl_productos
 					p.fecha_inicio,
 					p.fecha_fin,
 					p.cantidad,
-					p.imagen
+					p.imagen,
+					p.is_distintivo
 				FROM promociones p
 				INNER JOIN promocion_producto pp ON p.cod_promocion = pp.cod_promocion
 				INNER JOIN promocion_sucursal ps ON p.cod_promocion = ps.cod_promocion
@@ -780,12 +782,14 @@ class cl_productos
 			$cantidadPromo = 0;
 			$producto['promocion'] = "";
         	$producto['nxm'] = false;
+			$producto['is_distintivo'] = 0;
 			if($producto['disponible'] == true){
 				$promocion = $this->isPromocion($producto['cod_producto']);
 				if($promocion){
 					$precio = number_format($producto['precio'],2);
 					$texto = $promocion['texto'];
 					$producto['promocion'] = $texto;
+					$producto['is_distintivo'] = $promocion['is_distintivo'];
 					if($promocion['is_porcentaje']==1){
 						$producto['precio_anterior'] = $precio;
 						$valor = $promocion['valor'];
@@ -854,6 +858,7 @@ class cl_productos
 					$precio = number_format($producto['precio'],2);
 					$texto = $promocion['texto'];
 					$producto['promocion'] = $texto;
+					$producto['is_distintivo'] = $promocion['is_distintivo'];
 	
 					if($promocion['is_porcentaje']==1){
 						$producto['precio_anterior'] = $precio;
