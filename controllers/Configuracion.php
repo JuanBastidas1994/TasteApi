@@ -60,10 +60,13 @@ function getConfiguracion($aplicacion = ""){
 	$fidelizacion = $ClEmpresas->getFidelizacion();
 	if($fidelizacion){
 		$fidelizacion['activo'] = true;
+		$tipo_fidelizacion = $fidelizacion['tipo_fidelizacion'];
+		$monto = ($tipo_fidelizacion === 'simple') ? $fidelizacion['meta_puntos'] : $fidelizacion['divisor_puntos'];
 		$return['fidelizacion'] = [
-		    'amount' => number_format($fidelizacion['divisor_puntos'],2),
+		    'amount' => number_format($monto,2),
 		    'points' => number_format($fidelizacion['monto_puntos'],2),
 			'generate_barcode' => $fidelizacion['generate_barcode'],
+			'type' => $tipo_fidelizacion,
 		];
 		$return['niveles'] = $ClEmpresas->getNiveles();
 		$return['faqs'] = $ClEmpresas->getFaqs();
