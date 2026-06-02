@@ -36,7 +36,8 @@ $funciones = array(
 	"retail" => "controllers/Retail.php",
 	"places" => "controllers/GoogleMaps.php",
 	"notificaciones" => "controllers/Notificaciones.php",
-	
+	"cart"           => "controllers/CartSesion.php",
+
 	//CUSTOM
 	//"osole" => "controllers/custom/osole/osole.php",
 	"productos-oahu" => "controllers/custom/oahu/productos.php",
