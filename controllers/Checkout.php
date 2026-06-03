@@ -74,13 +74,33 @@ function getInfoCheckout(){
         $dates = $ClSucursales->getProgramarPedido($office_id);
         if($dates){
             $datesAvailables = [];
+
+            // Para preparación >= 1 día calculamos la fecha+hora exacta en que el pedido estará listo
+            $ready_date = null;
+            $ready_time = null;
+            if($preparation_time >= 1440){
+                date_default_timezone_set('America/Guayaquil');
+                $ready_dt = new DateTime('now');
+                $ready_dt->modify("+{$preparation_time} minutes");
+                $ready_date = $ready_dt->format('Y-m-d');
+                $ready_time = $ready_dt->format('H:i');
+            }
+
             foreach($dates as $key => $date){
-                $hoursAvailables = getIntervalsHour($office_id, $date['dia'], $type, $office['intervalo'], $preparation_time);
+                $fecha = $date['dia'];
+
+                // Fechas anteriores a cuando estará listo: no aplican
+                if($ready_date !== null && $fecha < $ready_date) continue;
+
+                // En el día exacto en que vence la preparación, pasamos la hora mínima
+                $hora_minima = ($ready_date !== null && $fecha === $ready_date) ? $ready_time : null;
+
+                $hoursAvailables = getIntervalsHour($office_id, $fecha, $type, $office['intervalo'], $preparation_time, $hora_minima);
                 if(count($hoursAvailables) > 0){
                     $dates[$key]['horas_pickup'] = $hoursAvailables;
                     $datesAvailables[] = $dates[$key];
                 }
-                
+
             }
             $office['programar_disponibilidad'] = $datesAvailables;
         }else{
@@ -192,13 +212,11 @@ function getSugerencias(){
 }
 
 //SUCURSAL FUNCIONES
-function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiempo_preparacion=0){
+function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiempo_preparacion=0, $hora_minima=null){
     global $ClSucursales;
     $isCurrentDay = false;
     $dateCurrent = fecha_only();
-    
-    
-    
+
     if($fecha == ""){
         $fecha = $dateCurrent;
         $isCurrentDay = true;
@@ -207,15 +225,25 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
             $isCurrentDay = true;
         }
     }
-        
+
     $disponibilidad = $ClSucursales->getHorarioFecha($cod_sucursal, $fecha);
     if($disponibilidad){
-        
+
 		$addTime = true;
 		$hora_ini = $disponibilidad['hora_ini'];
         $hora_fin = $disponibilidad['hora_fin'];
-        $addInitTime = $minutes; //Asegurarnos de que no pueda ir a retirar un pedido ni bien apertura el local
-		if($isCurrentDay) { //Dia actual
+        $addInitTime = $minutes;
+
+        if($hora_minima !== null){
+            // Día en que vence la preparación multi-día: arrancar desde hora_minima si es después de apertura
+            $addTime = false;
+            $ready_dt  = new DateTime($hora_minima);
+            $opening_dt = new DateTime($disponibilidad['hora_ini']);
+            if($ready_dt > $opening_dt){
+                $hora_ini = $hora_minima;
+            }
+            // Si hora_minima < apertura el producto ya estará listo antes de que abra, usar apertura + intervalo normal
+		} elseif($isCurrentDay) { //Dia actual
 			$hi = hora_create($hora_ini);
 			$hc = hora();
 			if($hc > $hi) {
@@ -224,7 +252,10 @@ function getIntervalsHour($cod_sucursal, $fecha="", $type, $minutes = 30, $tiemp
                     $addInitTime = $tiempo_preparacion;
                 }
 			}
-		}
+		} elseif($tiempo_preparacion > 0 && $tiempo_preparacion < 1440) {
+            // Día futuro con preparación menor a 1 día: primera hora = apertura + intervalo + preparación
+            $addInitTime = $minutes + $tiempo_preparacion;
+        }
 
         $hora_ini = sumarTiempoSeguro($hora_ini, $addInitTime);
         if ($hora_ini === false)

@@ -136,23 +136,20 @@ class cl_productos
 		}
 		
 		function isVisibleDate($cod_producto){
-		    $dia = date('N', strtotime(fecha())); //1 Lunes - 7 Domingo
-		    $query = "SELECT * FROM tb_productos_dias WHERE cod_producto = $cod_producto";
-		    $resp = Conexion::buscarVariosRegistro($query);
-		    if($resp){
-		        $query = "SELECT * FROM tb_productos_dias WHERE cod_producto = $cod_producto AND dia = $dia";
-		        $resp = Conexion::buscarRegistro($query);
-		        if($resp){
-		            //si tiene registro, el producto se mostrara
-		            return true;
-		        }else{
-		            //si no tiene registro el producto no debe mostrarse
-		            return false;
-		        }
-		    }else{
-		        //Si no tiene registros el producto se muestra siempre
-		        return true;
-		    }
+		    $query = "SELECT 1 FROM tb_productos_dias WHERE cod_producto = $cod_producto LIMIT 1";
+		    $tieneReglas = Conexion::buscarRegistro($query);
+		    if(!$tieneReglas) return true; // Sin reglas: siempre visible
+
+		    $dias = [1=>'lunes',2=>'martes',3=>'miercoles',4=>'jueves',5=>'viernes',6=>'sabado',7=>'domingo'];
+		    $dia  = $dias[date('N')];
+		    $hora = date('H:i:s');
+
+		    $query = "SELECT 1 FROM tb_productos_dias
+		             WHERE cod_producto = $cod_producto
+		             AND dia = '$dia'
+		             AND '$hora' BETWEEN hora_inicio AND hora_fin
+		             LIMIT 1";
+		    return (bool) Conexion::buscarRegistro($query);
 		}
 		
 		public function getTiempoPreparacion($ids){
@@ -834,6 +831,7 @@ class cl_productos
         }
         
         public function infoProductHalf($producto, $infoAdicional = true){
+			$producto['nombre'] = html_entity_decode($producto['nombre'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
 			$producto['precio'] = number_format($producto['precio'],2);
         	$producto['image_min'] = ($producto['image_min'] !== "") ? url.$producto['image_min'] : "";
 			$producto['image_max'] = ($producto['image_max'] !== "") ? url.$producto['image_max'] : "";
