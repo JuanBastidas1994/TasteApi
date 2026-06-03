@@ -37,6 +37,11 @@ function tracking($cod_orden){
 	
 	$orden = $Clordenes->getOrdenTracker($cod_orden);
 	if($orden){
+		$orden['my_order'] = false;
+		if(user_id == $orden['cod_usuario']){
+			$orden['my_order'] = true;
+		}
+
 		if($orden['is_envio'] == 0){
 			list($dia,$hora) = explode(" ",$orden['fecha_retiro']);
 	    	$orden['fecha_text_retiro'] = fechaLatinoShortWeekday($dia);
@@ -74,6 +79,8 @@ function tracking($cod_orden){
 		    $orden['payment'] = null;
 		 
 		 $orden['pagos'] = $payment;
+
+		 $orden['calificacion'] = $Clordenes->calificationOrder($cod_orden);
 	    
 		$return['success'] = 1;
 		$return['mensaje'] = "Correcto";
