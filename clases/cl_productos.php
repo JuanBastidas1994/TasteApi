@@ -239,12 +239,11 @@ class cl_productos
 		
 		public function getNumProductsByCategoria($cod_categoria){
 		    $cod_sucursal = $this->cod_sucursal;
-		    $dia_hoy = date('N');
-			// $dias = [1=>'lunes',2=>'martes',3=>'miercoles',4=>'jueves',5=>'viernes',6=>'sabado',7=>'domingo'];
-		    // $dia_hoy  = $dias[date('N')];
+			$dias = [1=>'lunes',2=>'martes',3=>'miercoles',4=>'jueves',5=>'viernes',6=>'sabado',7=>'domingo'];
+		    $dia_hoy  = $dias[date('N')];
 		    $condiciones_dia = "(
                     (pd.dia IS NULL) OR
-                    (pd.dia = $dia_hoy)
+                    (pd.dia = '$dia_hoy')
                 )";
                         
 		    $query = "SELECT COUNT(p.cod_producto) as cantidad
@@ -258,6 +257,7 @@ class cl_productos
                         AND p.cod_empresa = ".cod_empresa."
 						$this->filtroEntrega
                         AND $condiciones_dia";
+			// echo $query;
             $resp = Conexion::buscarRegistro($query);
             if($resp){
                 return $resp['cantidad'];
