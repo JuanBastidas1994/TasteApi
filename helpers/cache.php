@@ -33,7 +33,7 @@ function setCache($key, $value, $ttl = 86400) {
         'value'      => $value,
         'expires_at' => time() + $ttl
     ];
-    file_put_contents(CACHE_DIR . $key . '.json', json_encode($data));
+    file_put_contents(CACHE_DIR . $key . '.json', json_encode($data), LOCK_EX);
 }
 
 /* ═══════════════════════════════════════
@@ -63,7 +63,7 @@ function registrarStatCache($hit) {
     }
 
     $stats['ultima_actualizacion'] = date('Y-m-d H:i:s');
-    file_put_contents(CACHE_STATS_FILE, json_encode($stats, JSON_PRETTY_PRINT));
+    file_put_contents(CACHE_STATS_FILE, json_encode($stats, JSON_PRETTY_PRINT), LOCK_EX);
 }
 
 /* ═══════════════════════════════════════
