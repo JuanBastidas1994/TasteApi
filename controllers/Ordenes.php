@@ -344,7 +344,7 @@ function validarOrdenCorrecta(){
 		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
 		if (!$disponibilidad) {
 			$return['success'] = 0;
-			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
+			$return['mensaje'] = "Sucursal " . $office['nombre'] ." ". $ClSucursales->motivo_cierre;
 			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
 			showResponse($return);
 		}
@@ -532,6 +532,8 @@ function getPreOrden($preordenId){
 	        $tarjeta = number_format($pago['monto'],2);
 	}
 
+	$preorden['id'] = generarTracking($preorden['cod_orden']);
+
 	showResponse([
         'success' => 1,
 		'mensaje' => 'Información de la PreOrden',
@@ -546,14 +548,13 @@ function getPreOrden($preordenId){
 function convertirPreorden(){
 	global $Clordenes;
 
-	// throw new Exception('ERROR!!!');
-	
 	$input = validateInputs(array("cod_preorden", "paymentId", "paymentAuth", "paymentProvider"));
 	extract($input);
 	
 	logAdd(json_encode($input),"trama-ingreso","preorden-convertir");
 	
 	try{
+		// throw new Exception('ERROR');
 	    if($paymentProvider == 1){ //Datafast o Payphone
 	        $preorden = $Clordenes->getPreOrdenByPaymentId($paymentId);
 	    }else{
@@ -569,7 +570,7 @@ function convertirPreorden(){
     	 if($preorden['cod_orden'] != 0){
     	     return [
     		    'success' => 1,
-    		    'id' => $preorden['cod_orden'],
+    		    'id' => generarTracking($preorden['cod_orden']),
     		    'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
     		    'detalle' => 'Orden creada correctamente',
     		    'preorden' => $preorden
@@ -797,6 +798,9 @@ function convertirPreordenToken(){
 
 		require_once "clases/cl_paymentez.php";
 		$ClPaymentez = new cl_paymentez($cod_sucursal);
+		if(!$ClPaymentez->isInitialized){
+			throw new Exception('No esta configurado correctamente Nuvei');
+		}
 		$resp = $ClPaymentez->debitByToken3ds($usuario, $cod_preorden, $cardPayment['detail'], $cardPayment['cvv'], $cardPayment['monto'], $callbackUrl);
 
 		if(!$resp) throw new Exception('No se pudo procesar el pago');

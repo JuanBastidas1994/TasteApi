@@ -43,8 +43,8 @@ function getToken(){
             throw new Exception('Preorden no existente');
     	
     	$ClPaymentez = new cl_paymentez($cod_sucursal);
-    // 	if(!$ClPaymentez->Isinitialize)
-    // 	    throw new Exception('Nuvei no está configurado para esta empresa, por favor comunicarse con soporte');
+    	if(!$ClPaymentez->isInitialized)
+    	    throw new Exception('Nuvei no está configurado para esta empresa, por favor comunicarse con soporte');
     	    
     	$resp = $ClPaymentez->initReference($usuario, $preorden_id, $total);
     	if(!$resp) throw new Exception('No se pudo procesar el pago');
