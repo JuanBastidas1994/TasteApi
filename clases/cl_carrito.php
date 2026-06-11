@@ -702,9 +702,10 @@ class cl_carrito
 
             if (intval($numDescuentosAplicables) > 0){
                 $descuentoItem = (intval($numDescuentosAplicables) * floatval($precioPromo));
-                $porcentajeItem = $this->noRound(($descuentoItem * 100) / ($cantItem * $precio),false, 2);
+                $divisor = $cantItem * $precio;
+                $porcentajeItem = $divisor != 0 ? $this->noRound(($descuentoItem * 100) / $divisor, false, 2) : 0;
                 $numPromocionesAplicadas = intval($numDescuentosAplicables);
-                
+
             }else
                 $descuentoItem = 0;
 

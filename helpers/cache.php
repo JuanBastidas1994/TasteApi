@@ -3,6 +3,11 @@
 define('CACHE_DIR', __DIR__ . '/../cache/');
 define('CACHE_PRECISION_DECIMALES', 3); // 3 = ~111m | 2 = ~1.1km — cambiar para experimentar
 
+// Fallback por si config.php (no versionado) no define esta constante en el servidor
+if (!defined('CACHE_TTL_DISTANCIA')) {
+    define('CACHE_TTL_DISTANCIA', 120 * 24 * 3600); // 120 días
+}
+
 // El archivo de stats cambia cada mes automáticamente
 define('CACHE_STATS_FILE', CACHE_DIR . '_stats_' . date('Y_m') . '.json');
 
