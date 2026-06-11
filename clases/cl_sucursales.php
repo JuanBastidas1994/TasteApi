@@ -367,6 +367,8 @@ class cl_sucursales
 		/*FUNCIONES GOOGLE MAPS*/
 		 
 		 public function getDistanciaRutaGoogle($suc_lat, $suc_lon, $des_lat, $des_lon){
+			 require_once __DIR__ . '/../helpers/logs.php';
+
 			 $url  = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 			 $body = json_encode([
 				 'origin'      => ['location' => ['latLng' => ['latitude' => (float)$suc_lat, 'longitude' => (float)$suc_lon]]],
@@ -385,7 +387,9 @@ class cl_sucursales
 			 curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 			 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 			 curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-			 $response = curl_exec($ch);
+			 $response  = curl_exec($ch);
+			 $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			 $curlError = curl_error($ch);
 			 curl_close($ch);
 
 			 $data = json_decode($response, true);
@@ -395,6 +399,8 @@ class cl_sucursales
 					 'tiempo'    => $data['routes'][0]['duration'] ?? '0s',
 				 ];
 			 }
+
+			 logGoogleMapsError($url, $body, $httpCode, $curlError, $response);
 			 return false;
 		 }
 
