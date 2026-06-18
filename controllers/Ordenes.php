@@ -79,6 +79,10 @@ if ($method == "GET") {
 			$return = failurePreorden();
 			showResponse($return);
 		}
+		if ($request[1] == "preorden-pago-exitoso") {
+			$return = pagoExitosoPreorden();
+			showResponse($return);
+		}
 		if ($request[1] == "preorden-closemodal") {
 			$return = closemodalPreorden();
 			showResponse($return);
@@ -654,6 +658,57 @@ function failurePreorden(){
 	$Clordenes->failurePreOrden($cod_preorden, $paymentId, $paymentAuth, $motivo);
 	$return['success'] = 1;
 	$return['mensaje'] = "Se edito la informacion de la preorden fallada exitosamente";
+	return $return;
+}
+
+//Contar intentos de creacion de orden tras pago exitoso de Nuvei.
+//No crea la orden — eso lo hace la app con POST /ordenes/preorden.
+function pagoExitosoPreorden(){
+    global $input;
+	global $Clordenes;
+
+	$datosObligatorios = array("cod_preorden", "paymentId", "paymentAuth");
+	foreach ($datosObligatorios as $key => $value) {
+		if (!array_key_exists($value, $input)) {
+			$return = ['success' => 0, 'mensaje' => "Falta informacion, Error: Campo $value es obligatorio", 'errorCode' => "FALTA_INFORMACION"];
+			logAdd(json_encode($return), "respuesta-error", "preorden-pago-exitoso");
+			showResponse($return);
+		}
+	}
+	extract($input);
+
+	$cod_preorden = intval($cod_preorden);
+	$lot_number = isset($lot_number) ? $lot_number : "";
+
+	logAdd(json_encode($input), "trama-ingreso", "preorden-pago-exitoso");
+
+	$preorden = $Clordenes->marcarPagoExitosoPreOrden($cod_preorden, $paymentId, $paymentAuth, $lot_number);
+	if(!$preorden){
+		$return = ['success' => 0, 'mensaje' => "Preorden no existente", 'errorCode' => "PREORDEN_INEXISTENTE"];
+		logAdd(json_encode($return), "respuesta-error", "preorden-pago-exitoso");
+		showResponse($return);
+	}
+
+	//La orden ya fue creada anteriormente (idempotente)
+	if($preorden['cod_orden'] != 0){
+		$return = [
+			'success' => 1,
+			'mensaje' => 'La orden ya fue creada anteriormente',
+			'id' => generarTracking($preorden['cod_orden']),
+			'cod_orden' => intval($preorden['cod_orden']),
+			'estado' => $preorden['estado']
+		];
+		logAdd(json_encode($return), "respuesta-ya-existia", "preorden-pago-exitoso");
+		return $return;
+	}
+
+	$return = [
+		'success' => 1,
+		'mensaje' => 'Intento registrado',
+		'estado' => $preorden['estado'],
+		'num_intentos_creacion' => intval($preorden['num_intentos_creacion'])
+	];
+	logAdd(json_encode($return), "respuesta-pendiente", "preorden-pago-exitoso");
 	return $return;
 }
 

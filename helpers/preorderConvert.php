@@ -16,7 +16,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 
     $cod_preorden = $preorden['cod_preorden'];
 	
-	if($preorden['estado'] !== "VALIDADA" && $preorden['estado'] !== "CERRADA"){
+	if($preorden['estado'] !== "VALIDADA" && $preorden['estado'] !== "CERRADA" && $preorden['estado'] !== "PAGADA_NO_CREADA"){
 	    throw new Exception('Esta preorden ya fue utilizada, por favor pulsa el boton procesar pago nuevamente');
 	}
 
@@ -26,7 +26,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	
 	$ordenTrama = json_decode($preorden['json'], true);
 	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE
-	$ordenTrama['lot_number'] = (isset($lot_number)) ? $lot_number : "";
+	$ordenTrama['lot_number'] = (!empty($preorden['lot_number'])) ? $preorden['lot_number'] : "";
 	
 	$cod_sucursal = $ordenTrama['cod_sucursal'];
 	$cod_usuario = $ordenTrama['cod_usuario'];
