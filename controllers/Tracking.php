@@ -85,6 +85,7 @@ function tracking($cod_orden){
 		 $orden['pagos'] = $payment;
 
 		 $orden['calificacion'] = $Clordenes->calificationOrder($cod_orden);
+		 $orden['detalle'] = $Clordenes->listaDetalle($cod_orden);
 	    
 		$return['success'] = 1;
 		$return['mensaje'] = "Correcto";
