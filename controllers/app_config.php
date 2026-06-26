@@ -98,27 +98,13 @@ function infoHome2($cod_sucursal = 0, $aliasPage = ''){
 		$cod = $secciones['cod_detalle'];
 		
         if($tipo == "banner"){
-		    $banners = getBanners();
-		    $data[$x]['items'] = $banners;
-		  //  $device = getUserDevice();
-		  //  if($device == 'ANDROID' || $device == "IOS"){
-		  //      $data[$x]['tipo'] = 'anuncios';
-		  //      $data[$x]['forma'] = 'banner';
-		  //      $items = [];
-		  //      foreach($banners as $banner){
-		  //          $items[] = [
-		  //              'titulo' => '',
-		  //              'subtitulo' => '',
-		  //              'image_min' => $banner['imagen'],
-		  //              'text_boton' => '',
-		  //              'accion_id' => 0,
-		  //              'accion_desc' => '',
-		  //          ]; 
-		  //      }
-		  //      $data[$x]['items'] = $items;
-		  //  }else{
-		  //      $data[$x]['items'] = $banners;
-		  //  }
+		    $data[$x]['items'] = getBanners('WEB');
+		    $x++;
+
+		    $bannersApp = $secciones;
+		    $bannersApp['tipo'] = 'banner_app';
+		    $bannersApp['items'] = getBanners('APP');
+		    $data[$x] = $bannersApp;
 		}
 		if($tipo == "ordenar"){
 		    $data[$x]['items'] = $Clproductos->listaFromPaginaDetalle($id);
@@ -187,10 +173,10 @@ function getCategorias($cod_sucursal){
     }
 }
 
-function getBanners(){
+function getBanners($tipoBanner = 'WEB'){
     $query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion, ubicacion
-			FROM tb_banner 
-			WHERE estado IN('A') AND cod_empresa = ".cod_empresa." ORDER BY posicion ASC LIMIT 0,5";
+			FROM tb_banner
+			WHERE estado IN('A') AND tipo = '$tipoBanner' AND cod_empresa = ".cod_empresa." ORDER BY posicion ASC LIMIT 0,5";
 	$resp = Conexion::buscarVariosRegistro($query);
 	foreach ($resp as $key=>$banner) {
 		$resp[$key]['imagen'] = url.$banner['imagen'];
@@ -211,13 +197,7 @@ function infoCategorias(){
 }
 
 function lstBanners(){
-	$query = "SELECT titulo, subtitulo, descuento as text_adicional, text_boton, url_boton, image_min as imagen, posicion, ubicacion
-			FROM tb_banner 
-			WHERE estado IN('A') AND cod_empresa = ".cod_empresa." ORDER BY posicion ASC LIMIT 0,5";
-	$resp = Conexion::buscarVariosRegistro($query);
-	foreach ($resp as $key=>$banner) {
-		$resp[$key]['imagen'] = url.$banner['imagen'];
-	}
+	$resp = getBanners('WEB');
 
 	$return['success'] = 1;
 	$return['mensaje'] = "Correcto";

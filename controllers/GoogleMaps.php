@@ -5,10 +5,14 @@ if ($method == "GET") {
     $num_variables = count($request);
     $metodo = $request[1];
 
+    $sessiontoken = isset($_GET['sessiontoken']) ? $_GET['sessiontoken'] : null;
+
     if ($metodo == "autocomplete") {
         $filtro = urlencode($request[2]);
         try {
-            $data = ExecuteQuery("https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$filtro&language=es&components=country:ec&key=".API_GOOGLE_MAPS);
+            $url = "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$filtro&language=es&components=country:ec&key=".API_GOOGLE_MAPS;
+            if ($sessiontoken) $url .= "&sessiontoken=".urlencode($sessiontoken);
+            $data = ExecuteQuery($url);
             // Siempre devuelve array aunque falle
             if ($data && isset($data->status) && $data->status == "OK") {
                 showResponse(["success" => 1, "predictions" => $data->predictions]);
@@ -21,7 +25,9 @@ if ($method == "GET") {
     }else if($metodo == "details") {
         $placeId = $request[2];
         try {
-            $data = ExecuteQuery("https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry&key=".API_GOOGLE_MAPS);
+            $url = "https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&fields=geometry&key=".API_GOOGLE_MAPS;
+            if ($sessiontoken) $url .= "&sessiontoken=".urlencode($sessiontoken);
+            $data = ExecuteQuery($url);
             if ($data && isset($data->status) && $data->status == "OK") {
                 showResponse([
                     "success" => 1,
