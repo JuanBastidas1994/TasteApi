@@ -57,11 +57,6 @@ $Clusuarios = new cl_usuarios();
 			    }
 				showResponse($return);
 			}
-			else if($first=="eliminar_cuenta"){
-				$cod_usuario = $request[2];
-				$return = EliminarCuenta($request[2]);
-				showResponse($return);
-			}
 		}
 
 		$return['success']= 0;
@@ -76,7 +71,11 @@ $Clusuarios = new cl_usuarios();
 				$return = login_google();
 				showResponse($return);
 			}
-			
+			else if($first=="login_apple"){
+				$return = login_apple();
+				showResponse($return);
+			}
+
 			else if($first=="pre_login_express"){
 				$return = preLoginExpress();
 				showResponse($return);
@@ -128,7 +127,16 @@ $Clusuarios = new cl_usuarios();
 				$return = delete_direccion($request[2]);
 				showResponse($return);
 			}
-		}	
+		}
+		if($num_variables == 2){
+			if($first=="eliminar_cuenta"){
+				if(user_id == null){
+					showResponse([ 'success' => 0, 'mensaje' => 'No autenticado' ]);
+				}
+				$return = EliminarCuenta(user_id);
+				showResponse($return);
+			}
+		}
 	}else{
 		$return['success']= 0;
 		$return['mensaje']= "El metodo ".$method." para Login aun no esta disponible.";
@@ -450,10 +458,105 @@ function login_google(){
     return $return;
 }
 
+/*LOGIN WITH APPLE*/
+function login_apple(){
+	global $Clusuarios;
+	global $input;
+	extract($input);
+
+	$datosObligatorios = array("nombre", "correo");
+	foreach ($datosObligatorios as $key => $value) {
+		if (!array_key_exists($value, $input)) {
+			$return['success'] = 0;
+    		$return['mensaje'] = "Falta informacion, Error: Campo $value es obligatorio";
+    		$return['error_code'] = "FALTA_INFORMACION";
+			return $return;
+		}
+	}
+
+	$apellido = "";
+
+	if(count(explode(" ", $nombre)) < 2) {
+		$return['success'] = 0;
+    	$return['mensaje'] = "Ingrese al menos un nombre y un apellido";
+    	$return['error_code'] = "NOMBRE_INVALIDO";
+    	return $return;
+	}
+
+    $correo = trim($correo);
+	if(!validar_correo($correo)){
+		$return['success'] = 0;
+    	$return['mensaje'] = "El correo no tiene un formato correcto";
+    	$return['error_code'] = "INFORMACION_INVALIDA";
+    	return $return;
+	}else{
+	    $domain = explode("@", $correo)[1];
+	    if(!checkdnsrr($domain, "MX")){
+	        $return['success'] = 0;
+    	    $return['mensaje'] = "El correo es inválido, por favor revifica nuevamente el correo";
+    	    $return['error_code'] = "INFORMACION_INVALIDA";
+    	    return $return;
+	    }
+	}
+
+    $usuario = $Clusuarios->getUserActiveByEmail($correo);
+    if(!$usuario){ //CREAR
+    	$Clusuarios->cod_empresa = cod_empresa;
+	    $Clusuarios->cod_rol = 4;
+	    $Clusuarios->nombre = $nombre;
+	    $Clusuarios->apellido = $apellido;
+	    $Clusuarios->telefono = "";
+		$Clusuarios->correo = $correo;
+	    $Clusuarios->usuario = $correo;
+	    $Clusuarios->password = "N0P4ss";
+	    $Clusuarios->num_documento = "";
+
+        $cod_usuario = 0;
+	    if($Clusuarios->registro($cod_usuario)){
+	        $Clclientes = new cl_clientes();
+	        $Clclientes->create($cod_usuario, $nombre, $cod_cliente, "");
+
+	        //TODO no debería crearse el cliente si no tengo cedula
+	    	$return['success'] = 1;
+	    	$return['mensaje'] = "Registro completado con éxito";
+
+	    	/*INFORMACION DEL USUARIO*/
+    		$resp = $Clusuarios->get2($cod_usuario);
+		    if($resp){
+			    $return['data'] = $resp;
+		    }
+
+		    //CUPONES
+		    setCupon($cod_usuario, 'REGISTRO'); //Funciones.php
+	    }else{
+	    	$return['success'] = 0;
+	    	$return['mensaje'] = "Error al registrar";
+	    }
+    }else{
+    	if($usuario['estado'] == "I"){
+	        $return['success'] = 0;
+    		$return['mensaje'] = "Usuario inactivo, por favor comunícate con nosotros si crees que esto es un error.";
+			$return['error_code'] = "USUARIO_INACTIVO";
+			return $return;
+	    }
+
+	    //LOGIN APPLE
+	    $user = $Clusuarios->get2($usuario['cod_usuario']);
+	    $phone = normalizarTelefono($user['telefono']);
+		$user['telefono'] = ($phone) ? $phone : "";
+
+        $return['success'] = 1;
+        $return['mensaje'] = "Login correcto";
+        $return['type'] = "apple";
+        $return['data'] = $user;
+    }
+    return $return;
+}
+
 
 function EliminarCuenta($cod_usuario){
 	global $Clusuarios;
-	$respuesta = $Clusuarios->deleteUser($cod_usuario);
+	$respuesta = $Clusuarios->eliminarCuenta($cod_usuario);
 	if($respuesta){
 		$return['success'] = 1;
 		$return['mensaje'] = "Cuenta eliminada correctamente";
