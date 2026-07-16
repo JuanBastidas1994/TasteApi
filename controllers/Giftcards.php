@@ -22,23 +22,26 @@ $ClSucursales = new cl_sucursales();
 			$return['data'] = $Clgiftcards->lista();
 			showResponse($return);
 		}
-		if($num_variables == 2){	//GIFTCARDS DE UN USUARIO
-			$cod_usuario = $request[1];
-			
-			$return['success'] = 1;
-			$return['mensaje'] = "Correcto";
-			$return['compradas'] = $Clgiftcards->lista_compradas($cod_usuario);
-			$return['mis_giftcard'] = $Clgiftcards->lista_mis_giftcards($cod_usuario);
-			showResponse($return);
-		}
-		if($num_variables == 3){	//DETALLE DE UNA GIFTCARD DE UN USUARIO
-			$cod_usuario = $request[1];
-			$cod_usuario_giftcard = $request[2];
-			
-			$return['success'] = 1;
-			$return['mensaje'] = "Correcto";
-			$return['giftcard'] = $Clgiftcards->getGitcardUsuario($cod_usuario, $cod_usuario_giftcard);
-			showResponse($return);
+		if($num_variables == 2){
+			if($request[1] == "mis_giftcards"){	//GIFTCARDS DEL USUARIO AUTENTICADO
+				$usuario = validateUserAuthenticated();
+				$cod_usuario = $usuario['cod_usuario'];
+
+				$return['success'] = 1;
+				$return['mensaje'] = "Correcto";
+				$return['compradas'] = $Clgiftcards->lista_compradas($cod_usuario);
+				$return['mis_giftcard'] = $Clgiftcards->lista_mis_giftcards($cod_usuario);
+				showResponse($return);
+			}else{	//DETALLE DE UNA GIFTCARD: /giftcards/{id}
+				$usuario = validateUserAuthenticated();
+				$cod_usuario = $usuario['cod_usuario'];
+				$cod_usuario_giftcard = $request[1];
+
+				$return['success'] = 1;
+				$return['mensaje'] = "Correcto";
+				$return['giftcard'] = $Clgiftcards->getGitcardUsuario($cod_usuario, $cod_usuario_giftcard);
+				showResponse($return);
+			}
 		}
 	}
 	else if($method == "POST"){
