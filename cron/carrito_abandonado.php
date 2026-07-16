@@ -12,8 +12,9 @@
  *   *\/5 * * * * php /home/usuario/public_html/TasteApi/cron/carrito_abandonado.php >> /home/usuario/logs/carrito_cron.log 2>&1
  */
 
-// Solo permitir ejecución desde CLI
-if (php_sapi_name() !== 'cli') {
+// Solo permitir ejecución desde CLI o CGI (cPanel cron)
+$sapi = php_sapi_name();
+if ($sapi !== 'cli' && strpos($sapi, 'cgi') === false) {
     http_response_code(403);
     exit('Acceso denegado');
 }

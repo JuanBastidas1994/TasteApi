@@ -95,9 +95,9 @@ class cl_ordenes
 		}
 
 		public function getOrdenTracker($cod_orden){
-			$query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario, s.nombre as sucursal, s.direccion, s.telefono, s.transferencia_img, s.latitud as latitud_sucursal, s.longitud as longitud_sucursal, 
-			                c.total, c.estado, c.fecha, c.latitud, c.longitud, c.is_envio, c.hora_retiro as fecha_retiro, c.cod_courier as courier, c.order_token as token_courier, c.pago, c.is_altademanda 
-		            FROM tb_orden_cabecera c, tb_sucursales s 
+			$query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario, s.nombre as sucursal, s.direccion, s.telefono, s.transferencia_img, s.latitud as latitud_sucursal, s.longitud as longitud_sucursal,
+			                c.total, c.estado, c.fecha, c.latitud, c.longitud, c.is_envio, c.hora_retiro as fecha_retiro, c.cod_courier as courier, c.order_token as token_courier, c.pago, c.is_altademanda, c.mesa_referencia
+		            FROM tb_orden_cabecera c, tb_sucursales s
 		            WHERE c.cod_sucursal = s.cod_sucursal
 		            AND c.cod_orden = $cod_orden
 					AND c.cod_empresa = ".cod_empresa;
@@ -248,6 +248,7 @@ class cl_ordenes
 				$referencia = "";
 				$ciudad = 0;
 				$distancia=0;
+				$mesa_referencia = "";
 				$tipoEnvio = $MetodoEnvio['tipo'];
 				$express = 0;
 				if($tipoEnvio=="delivery"){
@@ -271,6 +272,15 @@ class cl_ordenes
 					$envio = 0;
 					$hora = $fecha;
 					$programado = 0;
+					$mesa_referencia = isset($MetodoEnvio['mesa_referencia']) ? trim($MetodoEnvio['mesa_referencia']) : '';
+					if ($mesa_referencia !== '') {
+						$qEmpresa = Conexion::buscarRegistro("SELECT mesa_tipo FROM tb_empresas WHERE cod_empresa = $cod_empresa");
+						$mesa_tipo_cfg = $qEmpresa ? ($qEmpresa['mesa_tipo'] ?? 'NUMERO') : 'NUMERO';
+						if ($mesa_tipo_cfg === 'NUMERO' && !ctype_digit($mesa_referencia)) {
+							throw new Exception("El número de mesa debe contener solo dígitos");
+						}
+					}
+					$mesa_referencia = str_replace("'", "", $mesa_referencia);
 				}else{
 				    $envio = 0;
 				    $hora = $MetodoEnvio['hora'] ?? $fecha;
@@ -290,8 +300,8 @@ class cl_ordenes
 				}
 
 				$api_version = api_version;
-				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, service, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, is_express, observacion, medio_compra, api_version, iva_porcentaje, envio_iva, is_altademanda) ";
-				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $service, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', $express, '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva, $altaDemanda)";
+				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, service, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, is_express, observacion, medio_compra, api_version, iva_porcentaje, envio_iva, is_altademanda, mesa_referencia) ";
+				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $service, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', $express, '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva, $altaDemanda, '$mesa_referencia')";
 				if(Conexion::ejecutar($query,NULL)){
 					$id = Conexion::lastId();
 					

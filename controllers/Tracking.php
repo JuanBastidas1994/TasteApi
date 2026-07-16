@@ -6,6 +6,7 @@
 
 require_once "clases/cl_ordenes.php";
 require_once "clases/cl_usuarios.php";
+require_once "clases/cl_empresas.php";
 $Clordenes = new cl_ordenes();
 $Clusuarios = new cl_usuarios();
 
@@ -34,7 +35,10 @@ $Clusuarios = new cl_usuarios();
 function tracking($cod_orden){
     global $Clordenes;
 	global $input;
-	
+
+	$ClEmpresas = new cl_empresas();
+	$empresa = $ClEmpresas->get();
+
 	$orden = $Clordenes->getOrdenTracker($cod_orden);
 	if($orden){
 		$orden['my_order'] = false;
@@ -47,9 +51,10 @@ function tracking($cod_orden){
 	    	$orden['fecha_text_retiro'] = fechaLatinoShortWeekday($dia);
 	    	$orden['hora_retiro'] = $hora;
 		}
-		
+
 		$tiposEnvio = [ 0 => 'pickup', 1 => 'delivery', 2 => 'onsite' ];
 		$orden['type'] = $tiposEnvio[$orden['is_envio']] ?? 'desconocido';
+		$orden['mesa_tipo'] = $empresa ? ($empresa['mesa_tipo'] ?? 'NUMERO') : 'NUMERO';
 		
 		if($orden['estado'] == "ANULADA" || $orden['estado'] == "CANCELADA"){
 			$orden['motivo_cancelacion'] = $Clordenes->getMotivoAnulacion($cod_orden);
@@ -96,7 +101,11 @@ function tracking($cod_orden){
 		if($orden['is_envio'] == 0){    //PICKUP
 		    $return['data']['timeline'] = getTimeline($historial, 'PICKUP', $orden['estado']);
 		    $return['data']['tracking'] = null;
-		    
+
+		}else if($orden['is_envio'] == 2){  //ONSITE / MESA
+		    $return['data']['timeline'] = getTimeline($historial, 'PICKUP', $orden['estado']);
+		    $return['data']['tracking'] = null;
+
 		}else{                          //DELIVERY
 			$tracking = null;
 			$timeline = null;
