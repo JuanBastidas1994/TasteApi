@@ -68,12 +68,16 @@ class cl_giftcards
 	}
 
 	public function getGitcardUsuario($cod_usuario, $id){
-		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, ug.monto, ug.codigo, ug.cod_usuario, ug.cod_usuario_receptor, ug.fecha, ug.fecha_utilizacion, ug.estado
+		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, g.nombre as producto, ug.monto, ug.codigo, ug.cod_usuario, ug.cod_usuario_receptor, ug.fecha, ug.fecha_utilizacion, ug.estado
 		FROM tb_usuario_giftcard ug, tb_giftcards g
 		WHERE ug.cod_giftcard = g.cod_giftcard
 		AND ug.cod_usuario_giftcard = $id";
 		$resp = Conexion::buscarRegistro($query);
 		if($resp){
+			// Solo el comprador o el beneficiario pueden ver el detalle de esta giftcard
+			if($resp['cod_usuario'] != $cod_usuario && intval($resp['cod_usuario_receptor']) != intval($cod_usuario)){
+				return null;
+			}
 			if($resp['cod_usuario'] == $cod_usuario)
 				$resp['tipo'] = "comprador";
 			else
