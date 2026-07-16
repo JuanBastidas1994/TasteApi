@@ -18,7 +18,8 @@ class cl_giftcards
 		$x=0;
 		foreach ($resp as $gift) {
 			$gift['imagen'] = url.$gift['imagen'];
-			$gift['montos'] = explode(",",$gift['montos']);
+			$montos = explode(",",$gift['montos']);
+			$gift['monto'] = $montos[0];
 			$return[$x]=$gift;
 			$x++;
 		}    
@@ -105,11 +106,16 @@ class cl_giftcards
 		return Conexion::buscarRegistro($query);
 	}
 
-	public function crear($monto, $cod_giftcard, $cod_usuario, $codigo){
-		$cod_empresa = cod_empresa;
-		$query = "INSERT INTO tb_usuario_giftcard(cod_usuario, cod_giftcard, codigo, monto, fecha, estado) ";
-		$query.= "VALUES($cod_usuario, $cod_giftcard, '$codigo', $monto, NOW(), 'A')";
-		return Conexion::ejecutar($query,NULL);
+	public function crear($monto, $cod_giftcard, $cod_usuario, $codigo, $cod_preorden = null, $paymentId = null, $paymentAuth = null, $payment_provider = null){
+		$query = "INSERT INTO tb_usuario_giftcard(cod_usuario, cod_giftcard, codigo, monto, fecha, estado, cod_preorden, paymentId, paymentAuth, payment_provider) ";
+		$query.= "VALUES(?, ?, ?, ?, NOW(), 'A', ?, ?, ?, ?)";
+		return Conexion::ejecutar($query, [$cod_usuario, $cod_giftcard, $codigo, $monto, $cod_preorden, $paymentId, $paymentAuth, $payment_provider]);
+	}
+
+	//Idempotencia: saber si una preorden ya generó una giftcard (evita duplicar en reintentos)
+	public function getGiftcardByPreorden($cod_preorden){
+		$query = "SELECT * FROM tb_usuario_giftcard WHERE cod_preorden = ?";
+		return Conexion::buscarRegistro($query, [$cod_preorden]);
 	}
 
 }
