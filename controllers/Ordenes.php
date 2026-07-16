@@ -362,7 +362,14 @@ function validarOrdenCorrecta(){
 	require_once "clases/cl_carrito.php";
 	$Clcarrito = new cl_carrito($input, $cod_sucursal);
 	$cart = $Clcarrito->getArray();
-	
+
+	if ($tipo == 'delivery' && $cart['envio'] <= 0) {
+		$promoAplica = $cart['promo_envio']['aplica'] ?? false;
+		if (!$promoAplica) {
+			showResponse([ 'success' => 0, 'mensaje' => 'El costo de envío no es válido, por favor intenta de nuevo', 'errorCode' => 'ENVIO_INVALIDO' ]);
+		}
+	}
+
 	$input['iva'] = $cart['iva'];
 	$input['descuento'] = $cart['descuento'];
 	$input['base0'] = $cart['base0'];
