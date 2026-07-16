@@ -27,7 +27,7 @@ class cl_giftcards
 	}
 
 	public function lista_compradas($cod_usuario){
-		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, ug.monto, ug.codigo, ug.fecha
+		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, g.nombre, ug.monto, ug.codigo, ug.fecha, ug.cod_usuario_receptor
 		FROM tb_usuario_giftcard ug, tb_giftcards g
 		WHERE ug.cod_giftcard = g.cod_giftcard
 		AND ug.cod_usuario = $cod_usuario";
@@ -40,7 +40,7 @@ class cl_giftcards
 	}
 
 	public function lista_mis_giftcards($cod_usuario){
-		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, ug.monto, ug.codigo, ug.fecha
+		$query = "SELECT ug.cod_usuario_giftcard as id, g.imagen, g.nombre, ug.monto, ug.codigo, ug.fecha
 		FROM tb_usuario_giftcard ug, tb_giftcards g
 		WHERE ug.cod_giftcard = g.cod_giftcard
 		AND ug.cod_usuario_receptor = $cod_usuario;";

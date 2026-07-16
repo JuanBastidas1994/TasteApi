@@ -289,10 +289,14 @@ function confirmarCompra(){
 
 function asignar(){
 	global $Clgiftcards;
-	global $Clusuarios;
 	global $input;
-	
-	$datosObligatorios = array("cod_usuario","codigo");
+
+	// cod_usuario sale de la cabecera autenticada, no del body (evita mandarlo redundante
+	// y que el cliente pueda enviar un cod_usuario distinto al de su propia sesion).
+	$usuario = validateUserAuthenticated();
+	$cod_usuario = $usuario['cod_usuario'];
+
+	$datosObligatorios = array("codigo");
 	foreach ($datosObligatorios as $key => $value) {
 		if (!array_key_exists($value, $input)) {
 			$return['success'] = 0;
@@ -303,25 +307,8 @@ function asignar(){
 	extract($input);
 	logAdd(json_encode($input),"trama-ingreso","asignar-giftcard");
 
-	/*USUARIO EXISTE*/
-	$usuario = $Clusuarios->get($cod_usuario);
-	if(!$usuario){
-		$return['success'] = 0;
-		$return['mensaje'] = "Usuario no encontrado";
-		$return['errorCode'] = "USUARIO_INEXISTENTE";
-		return $return;
-	}else{
-		$num_documento = $usuario['num_documento'];
-		if(trim($num_documento) ===""){
-			$return['success'] = 0;
-			$return['mensaje'] = "Numero de documento no válido";
-			$return['errorCode'] = "NUMDOC_INVALIDO";
-			return $return;
-		}
-	}
-
-	$Clclientes = new cl_clientes($num_documento);
-	if(!$Clclientes->get()){
+	$Clclientes = new cl_clientes();
+	if(!$Clclientes->getByUser($cod_usuario)){
 		$return['success'] = 0;
 		$return['mensaje'] = "Información de cliente no existente";
 		$return['errorCode'] = "CLIENTE_ERROR";
