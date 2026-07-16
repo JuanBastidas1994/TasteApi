@@ -95,15 +95,27 @@ class cl_ordenes
 		}
 
 		public function getOrdenTracker($cod_orden){
-			$query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario, s.nombre as sucursal, s.direccion, s.telefono, s.transferencia_img, s.latitud as latitud_sucursal, s.longitud as longitud_sucursal,
-			                c.total, c.estado, c.fecha, c.latitud, c.longitud, c.is_envio, c.hora_retiro as fecha_retiro, c.cod_courier as courier, c.order_token as token_courier, c.pago, c.is_altademanda, c.mesa_referencia
-		            FROM tb_orden_cabecera c, tb_sucursales s
-		            WHERE c.cod_sucursal = s.cod_sucursal
-		            AND c.cod_orden = $cod_orden
-					AND c.cod_empresa = ".cod_empresa;
-			$resp = Conexion::buscarRegistro($query);
-			return $resp;
-		}
+      if(!$cod_orden || intval($cod_orden) <= 0) return false;
+      $cod_orden = intval($cod_orden);
+
+      $query = "SELECT c.cod_orden, c.cod_sucursal, c.cod_usuario,
+                      s.nombre as sucursal, s.direccion, s.telefono,
+                      s.transferencia_img, s.latitud as latitud_sucursal,
+                      s.longitud as longitud_sucursal,
+                      c.total, c.estado, c.fecha, c.latitud, c.longitud,
+                      c.is_envio, c.hora_retiro as fecha_retiro,
+                      c.cod_courier as courier,
+                      c.order_token as token_courier,
+                      c.pago, c.is_altademanda,
+                      c.mesa_referencia
+              FROM tb_orden_cabecera c, tb_sucursales s
+              WHERE c.cod_sucursal = s.cod_sucursal
+              AND c.cod_orden = $cod_orden
+              AND c.cod_empresa = ".cod_empresa;
+
+      $resp = Conexion::buscarRegistro($query);
+      return $resp;
+  }
 		
 		public function getMotorizadoByOrder($cod_orden){
 		    $query = "SELECT u.nombre, u.apellido, u.telefono, u.imagen, u.latitud, u.longitud, u.fecha_ubicacion, u.placa
@@ -182,6 +194,47 @@ class cl_ordenes
 		public function setPaymentIdPreOrden($PreOrdenId, $paymentId){
 		    $query = "UPDATE tb_preorden_json SET paymentId = '$paymentId' WHERE cod_preorden = $PreOrdenId";
 		    return Conexion::ejecutar($query,NULL);
+		}
+
+		//PreOrden registrar pago exitoso ANTES de crear la orden (idempotente)
+		//Primer llamado: guarda paymentId/paymentAuth/lot_number y pasa a PAGADA_NO_CREADA
+		//Llamados posteriores (mismo pago aun sin orden creada): solo cuenta el intento
+		public function marcarPagoExitosoPreOrden($PreOrdenId, $paymentId, $paymentAuth, $lot_number){
+		    $preorden = $this->getPreOrden($PreOrdenId);
+		    if(!$preorden) return false;
+
+		    $fecha = fecha();
+
+		    //La orden ya fue creada, no hay nada que actualizar
+		    if($preorden['cod_orden'] != 0){
+		        return $preorden;
+		    }
+
+		    //Ya se habia registrado el pago antes, solo contamos el intento de creacion
+		    if($preorden['estado'] === 'PAGADA_NO_CREADA'){
+		        $query = "UPDATE tb_preorden_json SET num_intentos_creacion = num_intentos_creacion + 1, fecha_update = ? WHERE cod_preorden = ?";
+		        Conexion::ejecutar($query, [$fecha, $PreOrdenId]);
+		        $preorden['num_intentos_creacion'] = intval($preorden['num_intentos_creacion']) + 1;
+		        return $preorden;
+		    }
+
+		    //Primera vez que se confirma el pago: guardar datos criticos del cobro
+		    $query = "UPDATE tb_preorden_json
+		                SET estado = 'PAGADA_NO_CREADA',
+		                    paymentId = ?,
+		                    paymentAuth = ?,
+		                    lot_number = ?,
+		                    num_intentos_creacion = num_intentos_creacion + 1,
+		                    fecha_update = ?
+		                WHERE cod_preorden = ?";
+		    Conexion::ejecutar($query, [$paymentId, $paymentAuth, $lot_number, $fecha, $PreOrdenId]);
+
+		    $preorden['estado'] = 'PAGADA_NO_CREADA';
+		    $preorden['paymentId'] = $paymentId;
+		    $preorden['paymentAuth'] = $paymentAuth;
+		    $preorden['lot_number'] = $lot_number;
+		    $preorden['num_intentos_creacion'] = intval($preorden['num_intentos_creacion']) + 1;
+		    return $preorden;
 		}
 		
 		//PreOrden creando orden

@@ -54,11 +54,19 @@ function lista(){
     
     $cod_usuario = $usuario['cod_usuario'];
     try{
+		//TODO: de ley debería 
         $office_id = $_GET['office_id'] ?? sucursaldefault;
         if($office_id > 0){
-            
     		require_once "clases/cl_paymentez.php";
     		$ClPaymentez = new cl_paymentez($office_id);
+
+			if(!$ClPaymentez->isInitialized){
+				showResponse(['success' => 1, 'mensaje' => 'No tiene Nuvei', 'cards' => [], 'errorCode' => 'NO_CONFIGURADO']);
+			}
+
+			if($ClPaymentez->save_card == 0){
+				showResponse(['success' => 1, 'mensaje' => 'No tiene habilitado save card', 'cards' => [], 'errorCode' => 'NO_SAVE_CARD']);
+			}
     		
     		$resp = $ClPaymentez->getCards($cod_usuario);
     		if($resp['cards']){

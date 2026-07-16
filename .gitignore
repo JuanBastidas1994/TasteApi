@@ -7,3 +7,4 @@
 .config
 *error_log
 config.php
+service-account.json

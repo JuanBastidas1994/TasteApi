@@ -11,6 +11,11 @@ require_once "funciones.php";
 require_once "customException.php";
 require_once "helpers/logs.php";
 require_once "helpers/walletHelper.php";
+
+if (rand(1, 500) === 1) {
+    require_once 'helpers/cache.php';
+    limpiarCacheVencido();
+}
 //METODOS
 $funciones = array(
     "productos" => 	"controllers/Productos.php",

@@ -21,6 +21,10 @@ $Clusuarios = new cl_usuarios();
 			if($request[1] == "v2"){
 				$cod_orden = $request[2];
 				$orden_original = decodificarTracking($cod_orden);
+				if(!$orden_original){
+					logAdd("decodificarTracking devolvio null para: $cod_orden", "error", "tracking");
+					showResponse(['success' => 0, 'mensaje' => 'Orden no encontrada', 'errorCode' => 'ORDEN_INVALIDA']);
+				}
 				$return = tracking($orden_original);
 			    showResponse($return);
 			}
@@ -86,6 +90,7 @@ function tracking($cod_orden){
 		 $orden['pagos'] = $payment;
 
 		 $orden['calificacion'] = $Clordenes->calificationOrder($cod_orden);
+		 $orden['detalle'] = $Clordenes->listaDetalle($cod_orden);
 	    
 		$return['success'] = 1;
 		$return['mensaje'] = "Correcto";

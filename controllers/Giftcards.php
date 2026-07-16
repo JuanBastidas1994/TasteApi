@@ -7,9 +7,11 @@ require_once "clases/cl_giftcards.php";
 require_once "clases/cl_ordenes.php";
 require_once "clases/cl_usuarios.php";
 require_once "clases/cl_clientes.php";
+require_once "clases/cl_sucursales.php";
 $Clgiftcards = new cl_giftcards();
 $Clordenes = new cl_ordenes();
 $Clusuarios = new cl_usuarios();
+$ClSucursales = new cl_sucursales();
 
 
 	if($method == "GET"){
@@ -51,8 +53,14 @@ $Clusuarios = new cl_usuarios();
 				//$return['mensaje'] = "asignar";
 				showResponse(asignar());
 			}
+			if($request[1] == "preorden"){
+				showResponse(crearPreorden());
+			}
+			if($request[1] == "confirmar"){
+				showResponse(confirmarCompra());
+			}
 		}
-		
+
 		$return['success']= 0;
 		$return['mensaje']= "Evento no existente";
 		showResponse($return);
@@ -130,6 +138,149 @@ function crear(){
 			$return['mensaje'] = "No se pudo crear la orden, por favor intentelo nuevamente";
 		}*/
 	}else{
+		$return['success'] = 0;
+		$return['mensaje'] = "No se pudo crear la giftcard, por favor comunicate con soporte";
+	}
+	return $return;
+}
+
+function crearPreorden(){
+	global $Clgiftcards;
+	global $Clordenes;
+	global $ClSucursales;
+	global $input;
+
+	$datosObligatorios = array("monto","giftcard","cod_usuario");
+	foreach ($datosObligatorios as $key => $value) {
+		if (!array_key_exists($value, $input)) {
+			$return['success'] = 0;
+			$return['mensaje'] = "Falta informacion, Error: Campo $value es obligatorio";
+			return $return;
+		}
+	}
+	extract($input);
+	logAdd(json_encode($input),"trama-ingreso","giftcard-preorden");
+
+	$existGift = $Clgiftcards->getGitcardEmpresaById($giftcard);
+	if(!$existGift){
+		$return['success'] = 0;
+		$return['mensaje'] = "Tipo de Giftcard no existente";
+		return $return;
+	}
+
+	$montosPermitidos = explode(",", $existGift['montos']);
+	if(!in_array(strval($monto), $montosPermitidos)){
+		$return['success'] = 0;
+		$return['mensaje'] = "El monto seleccionado no es válido para esta Giftcard";
+		return $return;
+	}
+
+	//JSON minimo, solo para que Nuvei::getToken tenga un preorden_id valido al que referenciar
+	$json = json_encode([
+		'tipo' => 'giftcard',
+		'cod_giftcard' => intval($giftcard),
+		'monto' => floatval($monto),
+		'cod_usuario' => intval($cod_usuario),
+	]);
+
+	$preordenId = $Clordenes->saveJson($cod_usuario, $json, $monto);
+	if(!$preordenId){
+		$return['success'] = 0;
+		$return['mensaje'] = "No se pudo crear la preorden, por favor vuelva a intentarlo";
+		$return['errorCode'] = "PREORDEN_ERROR";
+		return $return;
+	}
+
+	$proveedor = 0;
+	$paymentTokens = $ClSucursales->getPaymentTokens(sucursaldefault, $proveedor);
+
+	$return['success'] = 1;
+	$return['mensaje'] = "Preorden creada correctamente";
+	$return['data'] = [
+		'preordenId' => intval($preordenId),
+		'total' => floatval($monto),
+		'cod_sucursal' => sucursaldefault,
+		'payment_tokens' => $paymentTokens,
+	];
+	return $return;
+}
+
+function confirmarCompra(){
+	global $Clgiftcards;
+	global $Clordenes;
+	global $input;
+
+	$datosObligatorios = array("cod_preorden","paymentId","paymentAuth","paymentProvider");
+	foreach ($datosObligatorios as $key => $value) {
+		if (!array_key_exists($value, $input)) {
+			$return['success'] = 0;
+			$return['mensaje'] = "Falta informacion, Error: Campo $value es obligatorio";
+			return $return;
+		}
+	}
+	extract($input);
+	logAdd(json_encode($input),"trama-ingreso","giftcard-confirmar");
+
+	$cod_preorden = intval($cod_preorden);
+
+	//Idempotencia: si esta preorden ya genero una giftcard (reintento del front), no duplicar
+	$giftcardExistente = $Clgiftcards->getGiftcardByPreorden($cod_preorden);
+	if($giftcardExistente){
+		$return['success'] = 1;
+		$return['mensaje'] = "Giftcard ya creada anteriormente";
+		$return['codigo'] = $giftcardExistente['codigo'];
+		return $return;
+	}
+
+	$preorden = $Clordenes->getPreOrden($cod_preorden);
+	if(!$preorden){
+		$return['success'] = 0;
+		$return['mensaje'] = "Preorden no existente";
+		$return['errorCode'] = "PREORDEN_INEXISTENTE";
+		return $return;
+	}
+
+	if(!in_array($preorden['estado'], ['VALIDADA', 'PAGADA_NO_CREADA'])){
+		$return['success'] = 0;
+		$return['mensaje'] = "Esta preorden ya fue utilizada";
+		$return['errorCode'] = "PREORDEN_USADA";
+		return $return;
+	}
+
+	$ordenTrama = json_decode($preorden['json'], true);
+	if(!$ordenTrama || !isset($ordenTrama['tipo']) || $ordenTrama['tipo'] !== 'giftcard'){
+		$return['success'] = 0;
+		$return['mensaje'] = "Preorden inválida para Giftcard";
+		$return['errorCode'] = "PREORDEN_TIPO_INVALIDO";
+		return $return;
+	}
+
+	require_once "helpers/preorderConvert.php";
+	try{
+		debitPaymentCard($paymentProvider, $paymentId, $paymentAuth, sucursaldefault);
+	}catch(Exception $e){
+		$Clordenes->failurePreOrden($cod_preorden, $paymentId, $paymentAuth, $e->getMessage());
+		$return['success'] = 0;
+		$return['mensaje'] = $e->getMessage();
+		return $return;
+	}
+
+	$cod_giftcard = $ordenTrama['cod_giftcard'];
+	$monto = $ordenTrama['monto'];
+	$cod_usuario_orden = $ordenTrama['cod_usuario'];
+
+	$codigo = "";
+	do{
+		$codigo = passRandom();
+	}while($Clgiftcards->getUserGiftcardByCode($codigo));
+
+	if($Clgiftcards->crear($monto, $cod_giftcard, $cod_usuario_orden, $codigo, $cod_preorden, $paymentId, $paymentAuth, $paymentProvider)){
+		$Clordenes->setStatusPreorden($cod_preorden, 'PAGADA', 0);
+		$return['success'] = 1;
+		$return['mensaje'] = "Giftcard creada correctamente";
+		$return['codigo'] = $codigo;
+	}else{
+		$Clordenes->setStatusPreorden($cod_preorden, 'FALLADA', 0, 'No se pudo crear la giftcard');
 		$return['success'] = 0;
 		$return['mensaje'] = "No se pudo crear la giftcard, por favor comunicate con soporte";
 	}

@@ -79,6 +79,10 @@ if ($method == "GET") {
 			$return = failurePreorden();
 			showResponse($return);
 		}
+		if ($request[1] == "preorden-pago-exitoso") {
+			$return = pagoExitosoPreorden();
+			showResponse($return);
+		}
 		if ($request[1] == "preorden-closemodal") {
 			$return = closemodalPreorden();
 			showResponse($return);
@@ -344,7 +348,7 @@ function validarOrdenCorrecta(){
 		$disponibilidad = $ClSucursales->disponibilidad($cod_sucursal, $hora);
 		if (!$disponibilidad) {
 			$return['success'] = 0;
-			$return['mensaje'] = "Sucursal " . $resp['nombre'] ." ". $ClSucursales->motivo_cierre;
+			$return['mensaje'] = "Sucursal " . $office['nombre'] ." ". $ClSucursales->motivo_cierre;
 			$return['errorCode'] = "SUCURSAL_NO_DISPONIBLE";
 			showResponse($return);
 		}
@@ -532,6 +536,8 @@ function getPreOrden($preordenId){
 	        $tarjeta = number_format($pago['monto'],2);
 	}
 
+	$preorden['id'] = generarTracking($preorden['cod_orden']);
+
 	showResponse([
         'success' => 1,
 		'mensaje' => 'Información de la PreOrden',
@@ -546,14 +552,13 @@ function getPreOrden($preordenId){
 function convertirPreorden(){
 	global $Clordenes;
 
-	// throw new Exception('ERROR!!!');
-	
 	$input = validateInputs(array("cod_preorden", "paymentId", "paymentAuth", "paymentProvider"));
 	extract($input);
 	
 	logAdd(json_encode($input),"trama-ingreso","preorden-convertir");
 	
 	try{
+		// throw new Exception('ERROR');
 	    if($paymentProvider == 1){ //Datafast o Payphone
 	        $preorden = $Clordenes->getPreOrdenByPaymentId($paymentId);
 	    }else{
@@ -569,7 +574,7 @@ function convertirPreorden(){
     	 if($preorden['cod_orden'] != 0){
     	     return [
     		    'success' => 1,
-    		    'id' => $preorden['cod_orden'],
+    		    'id' => generarTracking($preorden['cod_orden']),
     		    'mensaje' => 'Pago realizado con éxito, puedes revisarlo en tu lista de órdenes',
     		    'detalle' => 'Orden creada correctamente',
     		    'preorden' => $preorden
@@ -653,6 +658,57 @@ function failurePreorden(){
 	$Clordenes->failurePreOrden($cod_preorden, $paymentId, $paymentAuth, $motivo);
 	$return['success'] = 1;
 	$return['mensaje'] = "Se edito la informacion de la preorden fallada exitosamente";
+	return $return;
+}
+
+//Contar intentos de creacion de orden tras pago exitoso de Nuvei.
+//No crea la orden — eso lo hace la app con POST /ordenes/preorden.
+function pagoExitosoPreorden(){
+    global $input;
+	global $Clordenes;
+
+	$datosObligatorios = array("cod_preorden", "paymentId", "paymentAuth");
+	foreach ($datosObligatorios as $key => $value) {
+		if (!array_key_exists($value, $input)) {
+			$return = ['success' => 0, 'mensaje' => "Falta informacion, Error: Campo $value es obligatorio", 'errorCode' => "FALTA_INFORMACION"];
+			logAdd(json_encode($return), "respuesta-error", "preorden-pago-exitoso");
+			showResponse($return);
+		}
+	}
+	extract($input);
+
+	$cod_preorden = intval($cod_preorden);
+	$lot_number = isset($lot_number) ? $lot_number : "";
+
+	logAdd(json_encode($input), "trama-ingreso", "preorden-pago-exitoso");
+
+	$preorden = $Clordenes->marcarPagoExitosoPreOrden($cod_preorden, $paymentId, $paymentAuth, $lot_number);
+	if(!$preorden){
+		$return = ['success' => 0, 'mensaje' => "Preorden no existente", 'errorCode' => "PREORDEN_INEXISTENTE"];
+		logAdd(json_encode($return), "respuesta-error", "preorden-pago-exitoso");
+		showResponse($return);
+	}
+
+	//La orden ya fue creada anteriormente (idempotente)
+	if($preorden['cod_orden'] != 0){
+		$return = [
+			'success' => 1,
+			'mensaje' => 'La orden ya fue creada anteriormente',
+			'id' => generarTracking($preorden['cod_orden']),
+			'cod_orden' => intval($preorden['cod_orden']),
+			'estado' => $preorden['estado']
+		];
+		logAdd(json_encode($return), "respuesta-ya-existia", "preorden-pago-exitoso");
+		return $return;
+	}
+
+	$return = [
+		'success' => 1,
+		'mensaje' => 'Intento registrado',
+		'estado' => $preorden['estado'],
+		'num_intentos_creacion' => intval($preorden['num_intentos_creacion'])
+	];
+	logAdd(json_encode($return), "respuesta-pendiente", "preorden-pago-exitoso");
 	return $return;
 }
 
@@ -797,6 +853,9 @@ function convertirPreordenToken(){
 
 		require_once "clases/cl_paymentez.php";
 		$ClPaymentez = new cl_paymentez($cod_sucursal);
+		if(!$ClPaymentez->isInitialized){
+			throw new Exception('No esta configurado correctamente Nuvei');
+		}
 		$resp = $ClPaymentez->debitByToken3ds($usuario, $cod_preorden, $cardPayment['detail'], $cardPayment['cvv'], $cardPayment['monto'], $callbackUrl);
 
 		if(!$resp) throw new Exception('No se pudo procesar el pago');

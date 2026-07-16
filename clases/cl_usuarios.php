@@ -489,6 +489,30 @@ class cl_usuarios
 		return Conexion::ejecutar($query, null);
 	}
 
+	//ELIMINAR CUENTA
+	//No borra el usuario, ni ordenes, ni cambia el estado ni el correo/usuario:
+	//el correo se mantiene ocupado a proposito para que no se puedan farmear cupones de
+	//"primera compra" borrando y volviendo a registrar la cuenta con el mismo correo.
+	//Solo se limpian datos personales y se cierran sesiones activas (push tokens).
+	public function eliminarCuenta($cod_usuario) {
+		$cod_empresa = cod_empresa;
+		$query = "UPDATE tb_usuarios
+					SET nombre = '',
+					apellido = '',
+					telefono = '',
+					direccion = '',
+					num_documento = ''
+					WHERE cod_usuario = $cod_usuario
+					AND cod_empresa = $cod_empresa";
+		$resp = Conexion::ejecutar($query, null);
+		if($resp) {
+			Conexion::ejecutar("DELETE FROM tb_usuario_direcciones WHERE cod_usuario = $cod_usuario", null);
+			Conexion::ejecutar("DELETE FROM tb_usuarios_datos_facturacion WHERE cod_usuario = $cod_usuario", null);
+			Conexion::ejecutar("DELETE FROM tb_push_tokens WHERE cod_usuario = $cod_usuario", null);
+		}
+		return $resp;
+	}
+
 	public function getDatosFacturacion($cod_usuario) {
 		$query = "SELECT nombre, num_documento, direccion, telefono, correo, is_extranjero, tipo_documento 
 					FROM tb_usuarios_datos_facturacion

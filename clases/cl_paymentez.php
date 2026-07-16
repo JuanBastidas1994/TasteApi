@@ -4,9 +4,11 @@ require "./httpClient.php";
 
 class cl_paymentez {
 
-    var $URL;
-    var $SERVER_APPLICATION_CODE, $SERVER_APP_KEY;
-    var $paymentezApi;
+    var $isInitialized = false;
+    var $save_card = 0;
+    var $URL = "";
+    var $SERVER_APPLICATION_CODE = "", $SERVER_APP_KEY = "";
+    var $paymentezApi = null;
 
     public function __construct($pcod_sucursal=0)
     {
@@ -17,8 +19,10 @@ class cl_paymentez {
             $this->URL = ($stg == "production") ? 'https://ccapi.paymentez.com/v2/' : 'https://ccapi-stg.paymentez.com/v2/';
             $this->SERVER_APPLICATION_CODE = $tokens['server_code'];
             $this->SERVER_APP_KEY = $tokens['server_key'];
+            $this->save_card = $tokens['save_card'];
     
             $this->paymentezApi = new HttpClient(['Content-Type: application/json']);
+            $this->isInitialized = true;
         }
     }
 
@@ -30,6 +34,8 @@ class cl_paymentez {
 	    $query =  "SELECT * FROM tb_empresa_paymentez WHERE cod_empresa = ".cod_empresa;		
 		$resp = Conexion::buscarRegistro($query);
 		if($resp) return $resp;
+
+        return false;
 	}
 
 
@@ -74,6 +80,7 @@ class cl_paymentez {
         $phone = ($phone) ? '0'.substr($phone, 4) : "";
 
         $transaction = [
+            "locale" => "es",
             "user" => [
                 "id" => "".$usuario['cod_usuario'],
                 "email" => $usuario['correo'],
@@ -89,6 +96,9 @@ class cl_paymentez {
                 "installments_type" => 0// Número de cuotas: 2 con intereses, 3 sin intereses
             ],
             "conf" => [ // Configuración adicional
+                "style_version" => "2",
+                "allowed_card_types" => "0",
+                "invalid_card_type_message" => "Solo tarjeta de Credito",
                 "theme" => [
                     "logo" => "https://cdn.paymentez.com/img/nv/nuvei_logo.png",
                     "primary_color" => "#C800A1",

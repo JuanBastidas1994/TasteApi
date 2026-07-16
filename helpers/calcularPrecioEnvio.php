@@ -102,7 +102,7 @@ function getDistanciaRuta($sucursal, $latitud, $longitud){
     logGoogleMaps($sucursal['latitud'], $sucursal['longitud'], $latitud, $longitud, $distancia, 0);
 
     //Guardar en cache durante 24 horas.
-    setCache($cacheKey, $distancia);
+    setCache($cacheKey, $distancia, CACHE_TTL_DISTANCIA);
     registrarStatCache(false);
 
     return $distancia;
