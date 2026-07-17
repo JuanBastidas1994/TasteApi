@@ -77,6 +77,7 @@ function getConfiguracion($aplicacion = ""){
 		$fidelizacion['activo'] = false;
 		$return['fidelizacion'] = null;
 	}
+	$return['giftcards_active'] = ($empresa['giftcard'] == 1) ? true : false;
 
 	/*VERSION APP*/
 	if($aplicacion !== ""){
