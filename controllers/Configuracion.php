@@ -41,6 +41,7 @@ function getConfiguracion($aplicacion = ""){
 		$info['phone'] = $empresa['telefono'];
 		$info['email'] = $empresa['correo'];
 		$info['color'] = $empresa['color'];
+		$info['menu_type'] = $empresa['menu_type'];
 		$info['pixel'] = $empresa['facebook_pixel'];
 		$info['url_android'] = $empresa['url_android'];
 		$info['url_ios'] = $empresa['url_ios'];
