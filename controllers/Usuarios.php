@@ -75,6 +75,10 @@ $Clusuarios = new cl_usuarios();
 				$return = login_apple();
 				showResponse($return);
 			}
+			else if($first=="link_apple_account"){
+				$return = link_apple_account();
+				showResponse($return);
+			}
 
 			else if($first=="pre_login_express"){
 				$return = preLoginExpress();
@@ -464,93 +468,161 @@ function login_apple(){
 	global $input;
 	extract($input);
 
-	$datosObligatorios = array("nombre", "correo");
-	foreach ($datosObligatorios as $key => $value) {
-		if (!array_key_exists($value, $input)) {
+	// apple_user_id es el "sub" del token de Apple: estable para siempre por
+	// (Apple ID + esta app), lo manda Apple en TODOS los logins. correo/nombre
+	// solo llegan la primera vez que ese Apple ID autoriza la app.
+	if (!array_key_exists("apple_user_id", $input) || trim($input['apple_user_id']) === "") {
+		$return['success'] = 0;
+		$return['mensaje'] = "Falta informacion, Error: Campo apple_user_id es obligatorio";
+		$return['error_code'] = "FALTA_INFORMACION";
+		return $return;
+	}
+
+	$apple_user_id = trim($input['apple_user_id']);
+	if(!preg_match('/^[A-Za-z0-9_.\-]{1,255}$/', $apple_user_id)){
+		$return['success'] = 0;
+		$return['mensaje'] = "apple_user_id inválido";
+		$return['error_code'] = "INFORMACION_INVALIDA";
+		return $return;
+	}
+
+	$correoEnviado = (array_key_exists("correo", $input)) ? trim($input['correo']) : "";
+	$nombreEnviado = (array_key_exists("nombre", $input)) ? trim($input['nombre']) : "";
+
+	$usuario = $Clusuarios->getUserActiveByAppleId($apple_user_id);
+	$esRegistroNuevo = false;
+
+	if(!$usuario && $correoEnviado !== ""){
+		if(count(explode(" ", $nombreEnviado)) < 2) {
 			$return['success'] = 0;
-    		$return['mensaje'] = "Falta informacion, Error: Campo $value es obligatorio";
-    		$return['error_code'] = "FALTA_INFORMACION";
-			return $return;
+	    	$return['mensaje'] = "Ingrese al menos un nombre y un apellido";
+	    	$return['error_code'] = "NOMBRE_INVALIDO";
+	    	return $return;
+		}
+
+		if(!validar_correo($correoEnviado)){
+			$return['success'] = 0;
+	    	$return['mensaje'] = "El correo no tiene un formato correcto";
+	    	$return['error_code'] = "INFORMACION_INVALIDA";
+	    	return $return;
+		}else{
+		    $domain = explode("@", $correoEnviado)[1];
+		    if(!checkdnsrr($domain, "MX")){
+		        $return['success'] = 0;
+	    	    $return['mensaje'] = "El correo es inválido, por favor revifica nuevamente el correo";
+	    	    $return['error_code'] = "INFORMACION_INVALIDA";
+	    	    return $return;
+		    }
+		}
+
+		$usuario = $Clusuarios->getUserActiveByEmail($correoEnviado);
+
+		if(!$usuario){ //CREAR
+	    	$Clusuarios->cod_empresa = cod_empresa;
+		    $Clusuarios->cod_rol = 4;
+		    $Clusuarios->nombre = $nombreEnviado;
+		    $Clusuarios->apellido = "";
+		    $Clusuarios->telefono = "";
+			$Clusuarios->correo = $correoEnviado;
+		    $Clusuarios->usuario = $correoEnviado;
+		    $Clusuarios->password = "N0P4ss";
+		    $Clusuarios->num_documento = "";
+
+	        $cod_usuario = 0;
+		    if(!$Clusuarios->registro($cod_usuario)){
+		    	$return['success'] = 0;
+		    	$return['mensaje'] = "Error al registrar";
+		    	return $return;
+		    }
+
+		    $Clusuarios->setAppleUserId($cod_usuario, $apple_user_id);
+
+	        $Clclientes = new cl_clientes();
+	        $Clclientes->create($cod_usuario, $nombreEnviado, $cod_cliente, "");
+
+	        //TODO no debería crearse el cliente si no tengo cedula
+		    //CUPONES
+		    setCupon($cod_usuario, 'REGISTRO'); //Funciones.php
+
+		    $usuario = $Clusuarios->get($cod_usuario);
+		    $esRegistroNuevo = true;
+		}else{
+			if($usuario['estado'] == "I"){
+		        $return['success'] = 0;
+	    		$return['mensaje'] = "Usuario inactivo, por favor comunícate con nosotros si crees que esto es un error.";
+				$return['error_code'] = "USUARIO_INACTIVO";
+				return $return;
+		    }
+			// Cuenta creada antes de existir apple_user_id (o vinculada a otro Apple ID
+			// previamente): la vinculamos a este Apple ID ahora que tenemos el correo.
+			$Clusuarios->setAppleUserId($usuario['cod_usuario'], $apple_user_id);
 		}
 	}
 
-	$apellido = "";
-
-	if(count(explode(" ", $nombre)) < 2) {
+	if(!$usuario){
+		// No hay cuenta vinculada a este Apple ID y no mandaron correo (login
+		// posterior al primero, sin caché local): el frontend debe ofrecer login
+		// por correo y luego llamar a link_apple_account.
 		$return['success'] = 0;
-    	$return['mensaje'] = "Ingrese al menos un nombre y un apellido";
-    	$return['error_code'] = "NOMBRE_INVALIDO";
+    	$return['mensaje'] = "No pudimos identificar tu cuenta con Apple. Inicia sesión con tu correo para vincularla.";
+    	$return['error_code'] = "APPLE_ID_NO_VINCULADO";
     	return $return;
 	}
 
-    $correo = trim($correo);
-	if(!validar_correo($correo)){
-		$return['success'] = 0;
-    	$return['mensaje'] = "El correo no tiene un formato correcto";
-    	$return['error_code'] = "INFORMACION_INVALIDA";
-    	return $return;
-	}else{
-	    $domain = explode("@", $correo)[1];
-	    if(!checkdnsrr($domain, "MX")){
-	        $return['success'] = 0;
-    	    $return['mensaje'] = "El correo es inválido, por favor revifica nuevamente el correo";
-    	    $return['error_code'] = "INFORMACION_INVALIDA";
-    	    return $return;
-	    }
-	}
-
-    $usuario = $Clusuarios->getUserActiveByEmail($correo);
-    if(!$usuario){ //CREAR
-    	$Clusuarios->cod_empresa = cod_empresa;
-	    $Clusuarios->cod_rol = 4;
-	    $Clusuarios->nombre = $nombre;
-	    $Clusuarios->apellido = $apellido;
-	    $Clusuarios->telefono = "";
-		$Clusuarios->correo = $correo;
-	    $Clusuarios->usuario = $correo;
-	    $Clusuarios->password = "N0P4ss";
-	    $Clusuarios->num_documento = "";
-
-        $cod_usuario = 0;
-	    if($Clusuarios->registro($cod_usuario)){
-	        $Clclientes = new cl_clientes();
-	        $Clclientes->create($cod_usuario, $nombre, $cod_cliente, "");
-
-	        //TODO no debería crearse el cliente si no tengo cedula
-	    	$return['success'] = 1;
-	    	$return['mensaje'] = "Registro completado con éxito";
-
-	    	/*INFORMACION DEL USUARIO*/
-    		$resp = $Clusuarios->get2($cod_usuario);
-		    if($resp){
-			    $return['data'] = $resp;
-		    }
-
-		    //CUPONES
-		    setCupon($cod_usuario, 'REGISTRO'); //Funciones.php
-	    }else{
-	    	$return['success'] = 0;
-	    	$return['mensaje'] = "Error al registrar";
-	    }
-    }else{
-    	if($usuario['estado'] == "I"){
-	        $return['success'] = 0;
-    		$return['mensaje'] = "Usuario inactivo, por favor comunícate con nosotros si crees que esto es un error.";
-			$return['error_code'] = "USUARIO_INACTIVO";
-			return $return;
-	    }
-
-	    //LOGIN APPLE
-	    $user = $Clusuarios->get2($usuario['cod_usuario']);
-	    $phone = normalizarTelefono($user['telefono']);
-		$user['telefono'] = ($phone) ? $phone : "";
-
-        $return['success'] = 1;
-        $return['mensaje'] = "Login correcto";
-        $return['type'] = "apple";
-        $return['data'] = $user;
+	if($usuario['estado'] == "I"){
+        $return['success'] = 0;
+		$return['mensaje'] = "Usuario inactivo, por favor comunícate con nosotros si crees que esto es un error.";
+		$return['error_code'] = "USUARIO_INACTIVO";
+		return $return;
     }
+
+    $user = $Clusuarios->get2($usuario['cod_usuario']);
+    $phone = normalizarTelefono($user['telefono']);
+	$user['telefono'] = ($phone) ? $phone : "";
+
+    $return['success'] = 1;
+    $return['mensaje'] = $esRegistroNuevo ? "Registro completado con éxito" : "Login correcto";
+    $return['type'] = "apple";
+    $return['data'] = $user;
     return $return;
+}
+
+/*VINCULAR APPLE ID A UNA CUENTA YA AUTENTICADA (fallback cuando login_apple
+  devuelve APPLE_ID_NO_VINCULADO y el usuario entró de nuevo por correo)*/
+function link_apple_account(){
+	$input = validateInputs(array("cod_usuario", "apple_user_id"));
+	extract($input);
+
+	$apple_user_id = trim($apple_user_id);
+	if(!preg_match('/^[A-Za-z0-9_.\-]{1,255}$/', $apple_user_id)){
+		$return['success'] = 0;
+		$return['mensaje'] = "apple_user_id inválido";
+		$return['error_code'] = "INFORMACION_INVALIDA";
+		return $return;
+	}
+
+	$Clusuarios = new cl_usuarios();
+	$usuario = $Clusuarios->get($cod_usuario);
+	if(!$usuario){
+		$return['success'] = 0;
+		$return['mensaje'] = "Usuario no existente";
+		$return['error_code'] = "USUARIO_INEXISTENTE";
+		return $return;
+	}
+
+	$existente = $Clusuarios->getUserActiveByAppleId($apple_user_id);
+	if($existente && $existente['cod_usuario'] != $cod_usuario){
+		$return['success'] = 0;
+		$return['mensaje'] = "Este Apple ID ya está vinculado a otra cuenta";
+		$return['error_code'] = "APPLE_ID_YA_VINCULADO";
+		return $return;
+	}
+
+	$Clusuarios->setAppleUserId($cod_usuario, $apple_user_id);
+
+	$return['success'] = 1;
+	$return['mensaje'] = "Cuenta vinculada con Apple";
+	return $return;
 }
 
 

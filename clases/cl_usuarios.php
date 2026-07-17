@@ -280,6 +280,25 @@ class cl_usuarios
 		return Conexion::buscarRegistro($query);
 	}
 
+	// LOGIN APPLE - Apple solo manda correo/nombre la primera vez que un Apple ID
+	// autoriza la app, así que las siguientes veces identificamos al usuario por
+	// este id estable (el "sub" del token de Apple) en vez de depender del correo.
+	public function getUserActiveByAppleId($appleUserId) {
+		$cod_empresa = cod_empresa;
+		$query = "SELECT *
+					FROM tb_usuarios
+					WHERE apple_user_id = '$appleUserId'
+					AND cod_empresa = $cod_empresa
+					AND cod_rol = 4
+					AND estado IN ('A','I')";
+		return Conexion::buscarRegistro($query);
+	}
+
+	public function setAppleUserId($cod_usuario, $appleUserId) {
+		$query = "UPDATE tb_usuarios SET apple_user_id = '$appleUserId' WHERE cod_usuario = $cod_usuario";
+		return Conexion::ejecutar($query, NULL);
+	}
+
 	public function setUserCodeLogin($cod_usuario, $codigo) {
 		$fecha = fecha();
 		$query = "SELECT * 
