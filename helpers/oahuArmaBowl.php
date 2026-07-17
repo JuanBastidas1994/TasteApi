@@ -22,6 +22,7 @@ function addMaxItemToOptionOahu($findToTitleOption, $opciones){
 		$pos = strpos(strtolower($opcion['titulo']), $findToTitleOption);
 		if($pos !== false){
 			$opciones[$key]['cantidad'] = $opcion['cantidad'] + 1;
+			$opciones[$key]['descripcion'] = ($findToTitleOption == 'fruta') ? "🍇🥭 1 Fruta gratis por Juefru" : "🥥 1 Topping gratis por Marto";
 		}
 	}
 
