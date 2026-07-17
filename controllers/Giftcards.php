@@ -125,7 +125,7 @@ function crear(){
 	$codigo = "";
 
 	do{
-		$codigo = passRandom();
+		$codigo = giftcardCode();
 	}while($Clgiftcards->getUserGiftcardByCode($codigo));
 
 	if($Clgiftcards->crear($monto, $giftcard, $cod_usuario, $codigo)){
@@ -274,7 +274,7 @@ function confirmarCompra(){
 
 	$codigo = "";
 	do{
-		$codigo = passRandom();
+		$codigo = giftcardCode();
 	}while($Clgiftcards->getUserGiftcardByCode($codigo));
 
 	if($Clgiftcards->crear($monto, $cod_giftcard, $cod_usuario_orden, $codigo, $cod_preorden, $paymentId, $paymentAuth, $paymentProvider)){

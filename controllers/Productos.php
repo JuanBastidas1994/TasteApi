@@ -66,6 +66,10 @@ $Clproductos = new cl_productos();
 		        // $resp = $Clproductos->getInfoByAlias($alias);
 		        $resp = $Clproductos->getByAliasDetectVariants($alias);
 		        if($resp){
+		        	if(cod_empresa == 121){
+		        		require_once "helpers/oahuArmaBowl.php";
+		        		$resp = aplicarReglaArmaBowlOahu($Clproductos, $resp);
+		        	}
     				$return['success'] = 1;
     				$return['mensaje'] = "Producto encontrado por alias";
     				$return['data'] = $resp;

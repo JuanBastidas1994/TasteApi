@@ -448,6 +448,19 @@ function passRandom(){
       substr($an, rand(0, $su), 1);
 }
 
+function giftcardCode() {
+  $letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  $numbers = "0123456789";
+  $lettersLength = strlen($letters) - 1;
+  $numbersLength = strlen($numbers) - 1;
+  return  substr($letters, random_int(0, $lettersLength), 1) .
+      substr($letters, random_int(0, $lettersLength), 1) .
+      substr($letters, random_int(0, $lettersLength), 1) .
+      substr($numbers, random_int(0, $numbersLength), 1) .
+      substr($numbers, random_int(0, $numbersLength), 1) .
+      substr($numbers, random_int(0, $numbersLength), 1);
+}
+
 function passRandom2() {
   $letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   $numbers = "0123456789";

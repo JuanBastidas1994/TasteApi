@@ -54,7 +54,10 @@ function getConfiguracion($aplicacion = ""){
 	}
 
 	$return['informacion'] = $info;
-	
+
+	/*ORDEN DE TABS (bottom bar app)*/
+	$return['tabs_order'] = (!empty($empresa['tabs_order'])) ? explode(',', $empresa['tabs_order']) : null;
+
 	/*FIDELIZACION*/
 	$return['fidelizacion_active'] = fidelizacion;
 	$fidelizacion = $ClEmpresas->getFidelizacion();
