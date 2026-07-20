@@ -9,11 +9,11 @@ $ClEmpresas = new cl_empresas();
 
 	if($method == "GET"){
 		$num_variables = count($request);
-		if($num_variables == 1){
-		    $return = getConfiguracion();
-			showResponse($return);
-		}else if($num_variables == 2){
-			$return = getConfiguracion($request[1]);
+		// Device-Type (header) es la fuente preferida; el segmento de URL queda
+		// como fallback para clientes viejos que aun no mandan el header.
+		$aplicacion = device_type ? device_type : (($num_variables == 2) ? $request[1] : "");
+		if($num_variables == 1 || $num_variables == 2){
+		    $return = getConfiguracion($aplicacion);
 			showResponse($return);
 		}
 		else{

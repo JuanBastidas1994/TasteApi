@@ -77,6 +77,7 @@ if(verificateWs($empresa))
 	define('service_percentage',$empresa['service_percentage']);
 	define('user_id',getUserHeader());
 	define('delivery_type',getUserDeliveryType());
+	define('device_type',getDeviceType());
 
 	if($empresa['fidelizacion'] == 1)
 		define('fidelizacion',true);
