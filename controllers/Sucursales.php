@@ -209,7 +209,7 @@ function getCobertura($latitud, $longitud){
 		try{
 			$routeParam = isset($_GET['route']) ? $_GET['route'] : 1;
 			$route = $routeParam == 1 ? true : false;
-			$tarifa = isset($_GET['tariff_id']) ? $_GET['tariff_id'] : getTarifaDefault($cod_sucursal);
+			$tarifa = !empty($_GET['tariff_id']) ? $_GET['tariff_id'] : getTarifaDefault($cod_sucursal);
 			$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $tarifa, $route);
 			$sucursales[0]['precio'] = $precioEnvio['precio'];
 			$sucursales[0]['metodo_cobertura'] = $precioEnvio['courierName'];
