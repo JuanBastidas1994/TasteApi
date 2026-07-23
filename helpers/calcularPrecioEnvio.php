@@ -154,6 +154,12 @@ function getTarifaEnvio($cod_sucursal, $peso = 0, $productos_ids = []){
     return $tarifa ? $tarifa['cod_tarifa'] : null;
 }
 
+function getTarifaDefault($cod_sucursal){
+    $query = "SELECT cod_tarifa FROM tb_tarifa WHERE cod_sucursal = ? ORDER BY cod_tarifa ASC LIMIT 1";
+    $tarifa = Conexion::buscarRegistro($query, [$cod_sucursal]);
+    return $tarifa ? $tarifa['cod_tarifa'] : 0;
+}
+
 function getPriceWithTariff($tarifa_id, $distancia){
     require_once "clases/cl_sucursales.php";
 	$ClSucursales = new cl_sucursales();
