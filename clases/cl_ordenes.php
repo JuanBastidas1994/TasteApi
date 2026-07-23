@@ -107,6 +107,18 @@ class cl_ordenes
 			return $resp;
 		}
 		
+		/**
+		 * Timestamps del flujo fino del motorizado (ver api_flotas). No cambia
+		 * tb_orden_cabecera.estado (sigue ASIGNADA→ENVIANDO→ENTREGADA para el cajero) — esto es
+		 * lo que arma el tramo detallado del timeline del cliente en Tracking.php::getTimeline().
+		 */
+		public function getAsignacionMotorizado($cod_orden){
+		    $query = "SELECT fecha_asignacion, fecha_aceptacion, fecha_llegada_local, fecha_salida, fecha_llegada
+		              FROM tb_motorizado_asignacion
+		              WHERE cod_orden = ".$cod_orden;
+		     return Conexion::buscarRegistro($query);
+		}
+
 		public function getMotorizadoByOrder($cod_orden){
 		    $query = "SELECT u.nombre, u.apellido, u.telefono, u.imagen, u.latitud, u.longitud, u.fecha_ubicacion, u.placa
 			              FROM tb_motorizado_asignacion m, tb_usuarios u

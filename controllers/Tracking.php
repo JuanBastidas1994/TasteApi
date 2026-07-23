@@ -105,7 +105,12 @@ function tracking($cod_orden){
 		}else{                          //DELIVERY
 			$tracking = null;
 			$timeline = null;
-            $timeline = getTimeline($historial, 'DELIVERY', $orden['estado']);
+			// Solo para Mis Motorizados (courier 99) hay datos en tb_motorizado_asignacion para
+			// el tramo fino (en camino al local/llegó al local/en camino al cliente). Para
+			// couriers externos (Gacela/Picker/PedidosYa) esto viene null y getTimeline() cae
+			// al comportamiento viejo de tb_steps_timeline sin tocar nada.
+			$asignacionMotorizado = ($orden['courier'] == 99) ? $Clordenes->getAsignacionMotorizado($cod_orden) : null;
+            $timeline = getTimeline($historial, 'DELIVERY', $orden['estado'], $asignacionMotorizado);
 		    /*POSICION MOTORIZADO*/
     		if($orden['courier']==99){   //MIS MOTORIZADOS
     		    $tracking = $Clordenes->getMotorizadoByOrder($cod_orden);
@@ -159,13 +164,33 @@ function tracking($cod_orden){
 }
 
 
-function getTimeline($historial, $tipo, $currentStatus){
+function getTimeline($historial, $tipo, $currentStatus, $asignacionMotorizado = null){
     $timeline = [];
-    $query = "SELECT * FROM tb_steps_timeline 
+    $query = "SELECT * FROM tb_steps_timeline
     WHERE tipo = '$tipo' ORDER BY posicion ASC";
-    $resp = Conexion::buscarVariosRegistro($query);    
+    $resp = Conexion::buscarVariosRegistro($query);
     foreach($resp as $key => $steps){
-        $aux['estado'] = $steps['estado'];
+        $estado = $steps['estado'];
+
+        // Tramo fino del motorizado (Mis Motorizados con datos reales en
+        // tb_motorizado_asignacion): 'ASIGNADA' se expande en varios pasos con más detalle, y
+        // el viejo paso 'ENVIANDO' del catálogo queda absorbido ahí — no se pinta aparte.
+        // Si no hay $asignacionMotorizado (courier externo, o cancelada antes de asignar) cae
+        // al comportamiento de siempre, sin tocar nada.
+        if($tipo === 'DELIVERY' && $asignacionMotorizado !== null && $currentStatus !== 'ANULADA' && $currentStatus !== 'CANCELADA'){
+            if($estado === 'ASIGNADA'){
+                // Marca "current" en el sub-timeline solo si el pedido sigue en este tramo —
+                // si ya está ENTREGADA/NO_ENTREGADA, ese honor le toca al paso final de abajo.
+                $marcarCurrent = $currentStatus !== 'ENTREGADA' && $currentStatus !== 'NO_ENTREGADA';
+                $timeline = array_merge($timeline, getTimelineMotorizado($asignacionMotorizado, $marcarCurrent));
+                continue;
+            }
+            if($estado === 'ENVIANDO'){
+                continue;
+            }
+        }
+
+        $aux['estado'] = $estado;
         $aux['titulo'] = $steps['titulo'];
         $aux['image'] = url_resource.$steps['imagen'];
         $aux['texto'] = html_entity_decode($steps['desc_no_complete']);
@@ -173,7 +198,6 @@ function getTimeline($historial, $tipo, $currentStatus){
         $aux['complete'] = false;
         $aux['current'] = false;
 
-        $estado = $steps['estado'];
         $item = getHistorial($historial, $estado);
         if($item){
             list($dia,$hora) = explode(" ",$item['fecha']);
@@ -193,12 +217,67 @@ function getTimeline($historial, $tipo, $currentStatus){
                 $aux['complete'] = true;
                 $aux['current'] = true;
                 $timeline[] = $aux;
-                break;   
+                break;
             }
         }
         $timeline[] = $aux;
     }
     return $timeline;
+}
+
+/**
+ * Tramo fino del motorizado (Asignado/En camino al local/Llegó al local/En camino al cliente),
+ * construido directo desde tb_motorizado_asignacion — no depende de tb_orden_historial ni de
+ * tb_steps_timeline, así que no se rompe si algún paso se "salta". 'Entregada' NO va aquí, sigue
+ * viniendo del paso normal de tb_steps_timeline (misma fuente de siempre, sin cambios).
+ */
+function getTimelineMotorizado($asignacion, $marcarCurrent = true){
+    $pasos = [];
+    $pasos[] = construirPasoMotorizado('ASIGNADA', 'Pedido Asignado',
+        'La orden fue asignada al motorizado', 'La orden aún no ha sido asignada a un motorizado',
+        'order.png', $asignacion['fecha_asignacion']);
+
+    $pasos[] = construirPasoMotorizado('CAMINO_LOCAL', 'En camino al local',
+        'El motorizado va camino al local a recoger tu pedido', 'El motorizado aún no ha salido hacia el local',
+        'delivery.png', $asignacion['fecha_aceptacion']);
+
+    $pasos[] = construirPasoMotorizado('LLEGADA_LOCAL', 'Llegó al local',
+        'El motorizado llegó al local a recoger tu pedido', 'El motorizado aún no ha llegado al local',
+        'pas2.png', $asignacion['fecha_llegada_local']);
+
+    $pasos[] = construirPasoMotorizado('ENVIANDO', 'En camino a tu dirección',
+        'El motorizado va en camino a entregar tu pedido', 'El motorizado aún no ha salido hacia tu dirección',
+        'delivery.png', $asignacion['fecha_salida']);
+
+    // El paso "actual" es el último completado — evita que dos pasos se marquen 'current' a la vez.
+    if($marcarCurrent){
+        $ultimoCompleto = null;
+        foreach($pasos as $i => $paso){
+            if($paso['complete']) $ultimoCompleto = $i;
+        }
+        if($ultimoCompleto !== null){
+            $pasos[$ultimoCompleto]['current'] = true;
+        }
+    }
+
+    return $pasos;
+}
+
+function construirPasoMotorizado($estado, $titulo, $textoCompleto, $textoIncompleto, $imagen, $fecha){
+    $aux['estado'] = $estado;
+    $aux['titulo'] = $titulo;
+    $aux['image'] = url_resource.$imagen;
+    $aux['complete'] = $fecha !== null;
+    $aux['current'] = false;
+    if($fecha !== null){
+        list($dia,$hora) = explode(" ", $fecha);
+        $aux['texto'] = html_entity_decode($textoCompleto);
+        $aux['fecha'] = fechaLatinoShortWeekday($dia)." - ".$hora;
+    }else{
+        $aux['texto'] = html_entity_decode($textoIncompleto);
+        $aux['fecha'] = "--";
+    }
+    return $aux;
 }
 
 function getHistorial($historial, $estado){
