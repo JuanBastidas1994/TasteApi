@@ -13,11 +13,23 @@ if(ENVIRONMENT == "production"){
 
 require_once "conexion.php";
 
+// Busca un header sin importar mayusculas/minusculas.
+// CFNetwork (iOS) manda los nombres de header en minusculas; los navegadores no.
+function getHeaderCI($name){
+  $Allheaders = getallheaders();
+  foreach ($Allheaders as $key => $value) {
+    if (strcasecmp($key, $name) === 0) {
+      return $value;
+    }
+  }
+  return null;
+}
+
 function verificateWs(&$codigo)
 {
-  $Allheaders = getallheaders();
-  if (array_key_exists("Api-Key",$Allheaders)){
-    $query = "SELECT * FROM tb_empresas WHERE api_key = '".$Allheaders['Api-Key']."'";
+  $apiKey = getHeaderCI("Api-Key");
+  if ($apiKey !== null){
+    $query = "SELECT * FROM tb_empresas WHERE api_key = '".$apiKey."'";
     $codigo = Conexion::buscarRegistro($query);
     if($codigo)
       return true;
@@ -29,9 +41,9 @@ function verificateWs(&$codigo)
 }
 
 function getUserHeader(){
-  $Allheaders = getallheaders();
-  if(array_key_exists("User-Id",$Allheaders)){
-    $user_id = intval($Allheaders['User-Id']);
+  $userId = getHeaderCI("User-Id");
+  if($userId !== null){
+    $user_id = intval($userId);
     if($user_id > 0)
       return $user_id;
     else
@@ -41,27 +53,16 @@ function getUserHeader(){
 }
 
 function getUserDevice(){
-  $Allheaders = getallheaders();
-  if(array_key_exists("User-Device",$Allheaders)){
-    return $Allheaders['User-Device'];
-  }
-  return null;
+  return getHeaderCI("User-Device");
 }
 
 function getUserDeliveryType(){
-  $Allheaders = getallheaders();
-  if(array_key_exists("Delivery-Type",$Allheaders)){
-    return $Allheaders['Delivery-Type'];
-  }
-  return null;
+  return getHeaderCI("Delivery-Type");
 }
 
 function getDeviceType(){
-  $Allheaders = getallheaders();
-  if(array_key_exists("Device-Type",$Allheaders)){
-    return strtoupper($Allheaders['Device-Type']);
-  }
-  return null;
+  $deviceType = getHeaderCI("Device-Type");
+  return $deviceType !== null ? strtoupper($deviceType) : null;
 }
 
 function encrypt_decrypt($action, $string) {

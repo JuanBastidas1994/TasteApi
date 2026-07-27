@@ -8,6 +8,7 @@ require_once "clases/cl_ordenes.php";
 require_once "clases/cl_usuarios.php";
 require_once "clases/cl_empresas.php";
 require_once "clases/cl_sucursales.php";
+require_once "helpers/calcularPrecioEnvio.php";
 
 $Clordenes = new cl_ordenes();
 $Clusuarios = new cl_usuarios();
@@ -362,6 +363,58 @@ function validarOrdenCorrecta(){
 	require_once "clases/cl_carrito.php";
 	$Clcarrito = new cl_carrito($input, $cod_sucursal);
 	$cart = $Clcarrito->getArray();
+
+	//TRACKING DE ENVIO - solo trazabilidad, nunca debe bloquear la creacion de la preorden
+	$input['envio_meta'] = null;
+	if ($tipo == 'delivery') {
+		try {
+			$lat = $metodoEnvio['lat'];
+			$lng = $metodoEnvio['lng'];
+
+			$cod_courier = 0;
+			$courierAsignado = $ClSucursales->getCourier($cod_sucursal);
+			if ($courierAsignado) {
+				$cod_courier = $courierAsignado['cod_courier'];
+			}
+
+			$sucursalPrecio = $ClSucursales->getConPrecio($cod_sucursal, $lat, $lng);
+
+			//Igual que getPrecioCourier(): SOLO 1/3/5 son couriers externos con cotizacion en vivo.
+			//Cualquier otro valor (0, motorizados propios, etc) usa el mismo camino interno que /sucursales/precio.
+			$nombresCourier = [1 => 'GACELA', 3 => 'PICKER', 5 => 'PEDIDOS_YA'];
+
+			if (!$sucursalPrecio) {
+				//Sin cobertura para este punto en este momento - no hay nada confiable que calcular
+				$distancia_km = null;
+				$distancia_fuente = null;
+				$courier_precio = null;
+			} else if (isset($nombresCourier[$cod_courier])) {
+				//Externo: no se vuelve a consultar (evita costo/quota/cotizacion en vivo distinta a la que ya vio el cliente)
+				$distancia_km = $sucursalPrecio['distance'];
+				$distancia_fuente = 'LINEA_RECTA'; //Referencial, el courier externo no entrega distancia real
+				$courier_precio = $nombresCourier[$cod_courier];
+			} else {
+				//Interno (0, motorizados propios, etc): LINEA_RECTA o GOOGLE_MAPS, usa cache, sin costo real
+				$precioEnvio = getPrecioCourier(0, $sucursalPrecio, $lat, $lng, $cart['tarifa_id'], true);
+				$distancia_km = $precioEnvio['distancia'];
+				$distancia_fuente = $precioEnvio['courierName'];
+				$courier_precio = $precioEnvio['courierName'];
+			}
+
+			$input['envio_meta'] = [
+				'distancia_km' => $distancia_km,
+				'distancia_fuente' => $distancia_fuente,
+				'courier_precio' => $courier_precio,
+				'tariff_id' => $cart['tarifa_id'],
+				'device_type' => defined('device_type') ? device_type : null,
+			];
+
+			logCotizacionEnvio('PRECIO_VALIDAR', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
+		} catch (\Throwable $e) {
+			logAdd("Error calculando envio_meta: " . $e->getMessage(), "error", "validar-orden");
+		}
+	}
+	//FIN TRACKING DE ENVIO
 
 	if ($tipo == 'delivery' && $cart['envio'] <= 0) {
 		$promoAplica = $cart['promo_envio']['aplica'] ?? false;
