@@ -345,8 +345,17 @@ class cl_ordenes
 				}
 
 				$api_version = api_version;
-				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, service, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, is_express, observacion, medio_compra, api_version, iva_porcentaje, envio_iva, is_altademanda) ";
-				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $service, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', $express, '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva, $altaDemanda)";
+
+				//TRACKING DE ENVIO - metadata de trazabilidad, calculada server-side en el validador
+				$envioMeta = (isset($checkout['envio_meta']) && $checkout['envio_meta']) ? $checkout['envio_meta'] : null;
+				$distanciaKmSql = ($envioMeta && isset($envioMeta['distancia_km']) && $envioMeta['distancia_km'] !== null) ? floatval($envioMeta['distancia_km']) : "NULL";
+				$distanciaFuenteSql = ($envioMeta && !empty($envioMeta['distancia_fuente'])) ? "'" . addslashes($envioMeta['distancia_fuente']) . "'" : "NULL";
+				$courierPrecioSql = ($envioMeta && !empty($envioMeta['courier_precio'])) ? "'" . addslashes($envioMeta['courier_precio']) . "'" : "NULL";
+				$tariffIdMetaSql = ($envioMeta && isset($envioMeta['tariff_id']) && $envioMeta['tariff_id'] !== null) ? intval($envioMeta['tariff_id']) : "NULL";
+				$deviceTypeMetaSql = ($envioMeta && !empty($envioMeta['device_type'])) ? "'" . addslashes($envioMeta['device_type']) . "'" : "NULL";
+
+				$query = "INSERT INTO tb_orden_cabecera(cod_empresa, cod_sucursal, cod_usuario, fecha, subtotal0, subtotal12, subtotal, descuento, envio, iva, service, total, cod_descuento, is_envio, pago, telefono, referencia, referencia2, estado, latitud, longitud, distancia, is_suelto, monto_suelto, hora_retiro, is_programado, is_express, observacion, medio_compra, api_version, iva_porcentaje, envio_iva, is_altademanda, distancia_km, distancia_fuente, courier_precio, tariff_id, device_type) ";
+				$query.= "VALUES($cod_empresa, $cod_sucursal, $cod_usuario, '$fecha', $base0, $base12, $subtotal, $descuento, $envio, $iva, $service, $total, '$cupon', $is_envio, '$forma_pago', '$telefono','$direccion', '$referencia', 'ENTRANTE','$latitud', '$longitud', '$distancia', $is_suelto, $monto_suelto, '$hora', '$programado', $express, '$comentarios', '$origen', '$api_version', $iva_porcentaje, $envio_iva, $altaDemanda, $distanciaKmSql, $distanciaFuenteSql, $courierPrecioSql, $tariffIdMetaSql, $deviceTypeMetaSql)";
 				if(Conexion::ejecutar($query,NULL)){
 					$id = Conexion::lastId();
 					

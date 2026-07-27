@@ -147,10 +147,13 @@ function getPrecioDefinitivo(){
 	}
 
 	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, $tariff_id, true);
+
+	logCotizacionEnvio('PRECIO_ENDPOINT', $office_id, $latitud, $longitud, $precioEnvio['distancia'], $precioEnvio['courierName'], $precioEnvio['courierName'], $tariff_id, $precioEnvio['precio']);
+
 	showResponse([
         'success' => 1,
-        'mensaje' => 'Precio Envio Exitoso', 
-        'precio' => $precioEnvio['precio'], 
+        'mensaje' => 'Precio Envio Exitoso',
+        'precio' => $precioEnvio['precio'],
 		'courier' => $precioEnvio['courierName'],
 		'distancia' => $precioEnvio['distancia'],
 		'tarifa' => $tariff_id,

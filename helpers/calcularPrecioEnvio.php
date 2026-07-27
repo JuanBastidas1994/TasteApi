@@ -1,5 +1,26 @@
 <?php
 
+// Registro de solo-inserción de cada cotización de envío calculada, exitosa o no.
+// No representa el estado actual de nada (una ubicación puede cotizarse muchas
+// veces) - es historial para poder investigar qué courier/distancia/tarifa se
+// usó, incluso en checkouts que nunca llegan a convertirse en orden.
+// Nunca debe poder tumbar el flujo real: cualquier fallo aquí se traga.
+function logCotizacionEnvio($origen, $cod_sucursal, $latitud, $longitud, $distancia, $distancia_fuente, $courier_precio, $tariff_id, $precio){
+    try{
+        $cod_usuario = (defined('user_id') && user_id > 0) ? user_id : null;
+        $dispositivo = defined('device_type') ? device_type : null;
+        $query = "INSERT INTO tb_cotizacion_envio_log
+            (cod_usuario, cod_sucursal, latitud, longitud, distancia_km, distancia_fuente, courier_precio, tariff_id, device_type, precio, origen, fecha)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        Conexion::ejecutar($query, [
+            $cod_usuario, $cod_sucursal, $latitud, $longitud, $distancia,
+            $distancia_fuente, $courier_precio, $tariff_id, $dispositivo, $precio, $origen, fecha()
+        ]);
+    }catch(\Throwable $e){
+        // Telemetria - nunca debe afectar el flujo real
+    }
+}
+
 function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_id = 0, $getRuta = true){
     $cod_sucursal = $sucursal['cod_sucursal'];
     $courier = "";

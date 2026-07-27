@@ -58,7 +58,7 @@ if($method == "OPTIONS"){
 }
 $endpoint = $_SERVER['REQUEST_URI'];
 
-// saveLog('server.log', json_encode($_SERVER));
+saveLog('server.log', json_encode($_SERVER));
 
 if(verificateWs($empresa))
 {
