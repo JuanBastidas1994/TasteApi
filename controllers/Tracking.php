@@ -105,14 +105,14 @@ function tracking($cod_orden){
 		}else{                          //DELIVERY
 			$tracking = null;
 			$timeline = null;
-			// Solo para Mis Motorizados (courier 99) hay datos en tb_motorizado_asignacion para
-			// el tramo fino (en camino al local/llegó al local/en camino al cliente). Para
+			// Mis Motorizados (99) y pedidos de Flota (101) comparten el mismo tramo fino en
+			// tb_motorizado_asignacion (ver api_flotas/clases/cl_flotas.php::asignar) — para
 			// couriers externos (Gacela/Picker/PedidosYa) esto viene null y getTimeline() cae
 			// al comportamiento viejo de tb_steps_timeline sin tocar nada.
-			$asignacionMotorizado = ($orden['courier'] == 99) ? $Clordenes->getAsignacionMotorizado($cod_orden) : null;
+			$asignacionMotorizado = in_array($orden['courier'], [99, 101]) ? $Clordenes->getAsignacionMotorizado($cod_orden) : null;
             $timeline = getTimeline($historial, 'DELIVERY', $orden['estado'], $asignacionMotorizado);
 		    /*POSICION MOTORIZADO*/
-    		if($orden['courier']==99){   //MIS MOTORIZADOS
+    		if($orden['courier']==99 || $orden['courier']==101){   //MIS MOTORIZADOS o FLOTA
     		    $tracking = $Clordenes->getMotorizadoByOrder($cod_orden);
     		}else if($orden['courier']==1){ //GACELA
     		    if($orden['token_courier'] !== ""){
