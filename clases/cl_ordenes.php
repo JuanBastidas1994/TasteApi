@@ -344,7 +344,7 @@ class cl_ordenes
 					}
 				}
 
-				$api_version = api_version;
+				$api_version = (isset($checkout['version']) && (is_string($checkout['version']) || is_numeric($checkout['version'])) && $checkout['version'] !== "") ? str_replace("'", "", (string) $checkout['version']) : (string) api_version;
 
 				//TRACKING DE ENVIO - metadata de trazabilidad, calculada server-side en el validador
 				$envioMeta = (isset($checkout['envio_meta']) && $checkout['envio_meta']) ? $checkout['envio_meta'] : null;
