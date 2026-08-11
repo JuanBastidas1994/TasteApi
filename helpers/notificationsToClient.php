@@ -4,23 +4,88 @@
 function notifyNewOrder($order_id){
     //Enviar correo al usuario
 	ExecuteRemoteQuery(url_api . "correos/orden_complete.php?alias=" . alias . "&id=$order_id");
-	
+
 	require_once "clases/cl_ordenes.php";
 	$Clordenes = new cl_ordenes();
-	
+
 	$orden = $Clordenes->getOrderForNotify($order_id);
 	if(!$orden) return;
-	
-	//Enviar mensaje por whatsapp al administrador 
+
+	//Enviar mensaje por whatsapp al administrador
 // 	sendMessageWhatsapp($orden);
 
     //204 es 400Grados
     if(cod_empresa == 204 || cod_empresa == 70){
         sendMessageWhatsappVideo($orden);
     }
-	
+
 	//Enviar mensajes por telegram al administrador
 	sendMessageTelegram($orden);
+
+	// Push al cliente confirmando que su pedido entró — getOrderForNotify() no trae cod_usuario,
+	// así que se re-consulta con get() (sí lo trae) en vez de agregarlo a esa query compartida.
+	notificarPedidoRecibido($Clordenes->get($order_id));
+}
+
+/**
+ * Primer push al cliente en el ciclo de vida del pedido (estado ENTRANTE) — antes de esto no se
+ * mandaba ninguna notificación push, solo correo/whatsapp/telegram. El resto de los estados
+ * (ACEPTADA/ASIGNADA/ENVIANDO/ENTREGADA/etc) los maneja api_gestion_ordenes y api_flotas, cada
+ * uno dueño de la transición que dispara — acá solo el arranque.
+ */
+function notificarPedidoRecibido($orden){
+	if(!$orden || empty($orden['cod_usuario']) || empty($orden['cod_orden'])) return false;
+
+	$tokens = getPushTokensCliente($orden['cod_usuario']);
+	if(empty($tokens)) return false;
+
+	return enviarExpoPushCliente($tokens, '¡Pedido recibido! 🙌', 'Recibimos tu pedido y ya lo enviamos al restaurante.', [
+		'orden_id' => generarTracking($orden['cod_orden']),
+		'estado'   => 'ENTRANTE',
+		'type'     => 'order_tracking',
+	]);
+}
+
+// Tokens Expo del cliente (puede tener varios dispositivos) — mismo patrón que
+// api_gestion_ordenes/helpers/notificationsToClient.php::getPushTokensCliente().
+function getPushTokensCliente($cod_usuario){
+	$sql = "SELECT token FROM tb_push_tokens WHERE cod_usuario = :cod_usuario";
+	$registros = Conexion::buscarVariosRegistro($sql, [':cod_usuario' => $cod_usuario]);
+	if(!$registros) return [];
+	return array_column($registros, 'token');
+}
+
+// Envío crudo a la API de Expo, en chunks de 100 (límite de Expo por request). Nombrada distinto
+// de un posible enviarExpoPush() futuro en otro helper de este mismo repo, para no chocar.
+function enviarExpoPushCliente($tokens, $titulo, $mensaje, $data = []){
+	if(empty($tokens)) return false;
+
+	$mensajes = [];
+	foreach($tokens as $token){
+		$mensajes[] = [
+			"to"    => $token,
+			"title" => $titulo,
+			"body"  => $mensaje,
+			"data"  => $data,
+		];
+	}
+
+	$respuestas = [];
+	foreach(array_chunk($mensajes, 100) as $chunk){
+		$ch = curl_init("https://exp.host/--/api/v2/push/send");
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_POST, true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, [
+			"Content-Type: application/json",
+			"Accept: application/json",
+			"Accept-Encoding: gzip, deflate",
+		]);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($chunk));
+		$respuestas[] = curl_exec($ch);
+		curl_close($ch);
+	}
+
+	return $respuestas;
 }
 
 

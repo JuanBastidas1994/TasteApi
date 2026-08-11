@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <!-- Estas meta tags son un refuerzo débil: los navegadores/WebView no
+       siempre las respetan. El control real de cache debe hacerse con
+       headers HTTP en el servidor que sirve este archivo (ver notas al
+       final del archivo). -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Nuvei Checkout</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f9fafb;
+    }
+    .loading {
+      text-align: center;
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #6d28d9;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error {
+      text-align: center;
+      color: #b91c1c;
+      font-size: 14px;
+      padding: 0 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loadingState">
+    <div class="spinner"></div>
+    <p>Abriendo pasarela de pago...</p>
+  </div>
+
+  <script>
+    // Instrumentación de diagnóstico: reenvía a React Native todo lo que
+    // pase en esta página (console, errores, intentos de window.open,
+    // postMessage entre frames). Se puede editar/quitar en el servidor
+    // sin necesidad de actualizar la app.
+    (function () {
+      function sendLog(level, args) {
+        try {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'debug_log',
+            level: level,
+            message: Array.prototype.map.call(args, function (a) {
+              try { return typeof a === 'string' ? a : JSON.stringify(a); } catch (e) { return String(a); }
+            }).join(' ')
+          }));
+        } catch (e) {}
+      }
+      ['log', 'warn', 'error', 'info'].forEach(function (level) {
+        var original = console[level];
+        console[level] = function () {
+          sendLog(level, arguments);
+          if (original) original.apply(console, arguments);
+        };
+      });
+      window.onerror = function (message, source, lineno, colno) {
+        sendLog('error', ['window.onerror:', message, source + ':' + lineno + ':' + colno]);
+      };
+      window.addEventListener('unhandledrejection', function (event) {
+        sendLog('error', ['unhandledrejection:', event.reason]);
+      });
+      var originalOpen = window.open;
+      window.open = function (url) {
+        sendLog('warn', ['window.open llamado con url:', url]);
+        return originalOpen ? originalOpen.apply(window, arguments) : null;
+      };
+      window.addEventListener('message', function (event) {
+        sendLog('info', ['postMessage recibido, origin=', event.origin, 'data=', event.data]);
+      });
+      sendLog('info', ['document origin/href:', window.location.origin, window.location.href]);
+    })();
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.5.0.min.js"></script>
+  <script src="https://cdn.paymentez.com/ccapi/sdk/payment_checkout_3.0.0.min.js"></script>
+
+  <script>
+    var paymentCheckout;
+
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+
+    function showError(message) {
+      document.getElementById('loadingState').outerHTML =
+        '<div class="error">' + message + '</div>';
+    }
+
+    $(document).ready(function () {
+      var reference = getParam('reference');
+      var envMode = getParam('env') === 'production' ? 'prod' : 'stg';
+
+      if (!reference) {
+        showError('Falta la referencia de pago.');
+        return;
+      }
+
+      try {
+        paymentCheckout = new PaymentCheckout.modal({
+          env_mode: envMode,
+          locale: 'es',
+          onResponse: function (response) {
+            console.log('Nuvei response:', JSON.stringify(response));
+            var transaction = response.transaction;
+
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'payment_success',
+              transaction: {
+                status: transaction.status,
+                status_detail: transaction.status_detail,
+                id: transaction.id,
+                dev_reference: transaction.dev_reference,
+                authorization_code: transaction.authorization_code,
+                lot_number: transaction.lot_number
+              }
+            }));
+          },
+          onOpen: function () {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'payment_opened'
+            }));
+          },
+          onClose: function () {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'payment_closed'
+            }));
+          }
+        });
+
+        paymentCheckout.open({ reference: reference });
+
+      } catch (e) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'payment_closed',
+          error: e.message
+        }));
+      }
+    });
+  </script>
+</body>
+</html>
+
+<!--
+  DESPLIEGUE:
+  - Servir este archivo por HTTPS en el dominio propio (ej. api.mie-commerce.com
+    o el servidor que se use), en una ruta pública sin autenticación.
+  - Query params esperados: ?reference=XXX&env=production|staging
+  - Headers HTTP recomendados en la respuesta del servidor (esto es lo que
+    de verdad evita el cacheo, las meta tags de arriba son solo un refuerzo):
+      Cache-Control: no-store, no-cache, must-revalidate
+      Pragma: no-cache
+      Expires: 0
+-->
