@@ -1,0 +1,10 @@
+# Headers específicos para esta carpeta (no afecta al resto del proyecto).
+# El .htaccess raíz reescribe todo lo que NO sea un archivo/carpeta real hacia
+# index.php, así que los archivos servidos desde acá nunca pasan por ese router.
+<IfModule mod_headers.c>
+  Header set Cache-Control "no-store, no-cache, must-revalidate"
+  Header set Pragma "no-cache"
+  Header set Expires "0"
+</IfModule>
+
+Options -Indexes
