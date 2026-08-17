@@ -251,7 +251,13 @@ class cl_usuarios
 		$query = "SELECT * from tb_usuario_purchase_code WHERE cod_usuario  = $cod_usuario AND estado = 'CREADO' AND fecha_expiracion > '$fecha'";
 		return Conexion::buscarRegistro($query);
 	}
-	
+
+	public function purchaseCodeExists($codigo){
+		$fecha = fecha();
+		$query = "SELECT codigo FROM tb_usuario_purchase_code WHERE codigo = '$codigo' AND estado = 'CREADO' AND fecha_expiracion > '$fecha'";
+		return Conexion::buscarRegistro($query) ? true : false;
+	}
+
 	public function createPurchaseCodeActive($cod_usuario, $codigo, $intervalo = '00:05:00'){
 		$fecha = fecha();
 		$fecha_expiracion = AddIntervalo($fecha, $intervalo);

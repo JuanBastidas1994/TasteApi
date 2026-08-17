@@ -103,12 +103,12 @@ function CodePurchase($user_id){
     
     $usuario = $Clusuarios->get($user_id);
     if($usuario){
-        $num_documento = $usuario['num_documento'];
-        
         $code = $Clusuarios->getPurchaseCodeActive($user_id);
         if(!$code){
-            $codigo = md5($num_documento.datetime_format2());
-            $codigo = hash("crc32b", $codigo);
+            //3 letras + 3 numeros, apto para codigo de barras (Code128), no depende de num_documento
+            do {
+                $codigo = giftcardCode();
+            } while($Clusuarios->purchaseCodeExists($codigo));
             $saveCode = $Clusuarios->createPurchaseCodeActive($user_id, $codigo, '00:10:00');
             if($saveCode){
                 $code = $Clusuarios->getPurchaseCodeActive($user_id);

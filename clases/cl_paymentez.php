@@ -75,9 +75,13 @@ class cl_paymentez {
     public function initReference($usuario, $preorder_id, $amount){
         $no_tax = $amount / 1.15;
         $tax = $amount - $no_tax;
-        
+
         $phone = normalizarTelefono($usuario['telefono']);
         $phone = ($phone) ? '0'.substr($phone, 4) : "";
+
+        $empresa = (new cl_empresas())->get();
+        $empresaColor = isset($empresa['color']) ? trim($empresa['color']) : "";
+        $color = preg_match('/^#[0-9A-Fa-f]{6}$/', $empresaColor) ? $empresaColor : "#C800A1";
 
         $transaction = [
             "locale" => "es",
@@ -101,8 +105,8 @@ class cl_paymentez {
                 "invalid_card_type_message" => "Solo tarjeta de Credito",
                 "theme" => [
                     "logo" => "https://cdn.paymentez.com/img/nv/nuvei_logo.png",
-                    "primary_color" => "#C800A1",
-                    "secondary_color" => "#C800A1"
+                    "primary_color" => $color,
+                    "secondary_color" => $color
                 ]
             ]
         ];

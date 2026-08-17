@@ -377,6 +377,7 @@ function validarOrdenCorrecta(){
 				$cod_courier = $courierAsignado['cod_courier'];
 			}
 
+			//TODO - Esto no tiene sentido....
 			$sucursalPrecio = $ClSucursales->getConPrecio($cod_sucursal, $lat, $lng);
 
 			//Igual que getPrecioCourier(): SOLO 1/3/5 son couriers externos con cotizacion en vivo.
