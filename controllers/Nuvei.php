@@ -45,8 +45,17 @@ function getToken(){
     	$ClPaymentez = new cl_paymentez($cod_sucursal);
     	if(!$ClPaymentez->isInitialized)
     	    throw new Exception('Nuvei no está configurado para esta empresa, por favor comunicarse con soporte');
-    	    
-    	$resp = $ClPaymentez->initReference($usuario, $preorden_id, $total);
+
+    	$color = "";
+    	try{
+    	    require_once "clases/cl_empresas.php";
+    	    $empresa = (new cl_empresas())->get();
+    	    $color = isset($empresa['color']) ? trim($empresa['color']) : "";
+    	}catch(Exception $e){
+    	    $color = "";
+    	}
+
+    	$resp = $ClPaymentez->initReference($usuario, $preorden_id, $total, $color);
     	if(!$resp) throw new Exception('No se pudo procesar el pago');
     	
     	if(!isset($resp['reference'])){
