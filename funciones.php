@@ -62,7 +62,10 @@ function getUserDeliveryType(){
 
 function getDeviceType(){
   $deviceType = getHeaderCI("Device-Type");
-  return $deviceType !== null ? strtoupper($deviceType) : null;
+  // Si no llega el header, no asumimos "WEB" (mentiría sobre el origen) -
+  // 'API' deja claro que la request no vino de un cliente reconocido
+  // (Postman, integración directa, o un cliente desactualizado).
+  return $deviceType !== null ? strtoupper($deviceType) : 'API';
 }
 
 function encrypt_decrypt($action, $string) {

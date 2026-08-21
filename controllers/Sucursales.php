@@ -4,6 +4,7 @@
 		$request - Url y variables GET
 		$input - Solo metodo POST, PUT */
 require_once "helpers/calcularPrecioEnvio.php";
+require_once "helpers/cotizacionPrecio.php";
 require_once "clases/cl_sucursales.php";
 require_once "clases/cl_empresas.php";
 $ClSucursales = new cl_sucursales();
@@ -146,9 +147,15 @@ function getPrecioDefinitivo(){
 		showResponse(['success' => 0, 'mensaje' => 'Sucursal no existente o inactiva']);
 	}
 
+	//Alcance actual: solo couriers internos (GOOGLE_MAPS/LINEA_RECTA), igual que siempre
+	//hizo este endpoint. Los externos se cotizan por separado via getCobertura().
 	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, $tariff_id, true);
 
-	logCotizacionEnvio('PRECIO_ENDPOINT', $office_id, $latitud, $longitud, $precioEnvio['distancia'], $precioEnvio['courierName'], $precioEnvio['courierName'], $tariff_id, $precioEnvio['precio']);
+	logCotizacionEnvio('PRECIO_ENDPOINT', $office_id, $latitud, $longitud, $precioEnvio['distancia'], $precioEnvio['courierName'], $precioEnvio['precio'], $tariff_id, $precioEnvio['precio']);
+
+	//Ticket exacto de cotizacion: /ordenes/validar lo busca por ID como fuente
+	//autoritativa del precio, en vez de recalcular en vivo.
+	$cotizacion_id = crearCotizacionPrecio($office_id, $precioEnvio['courierName'], $tariff_id, $latitud, $longitud, $precioEnvio['distancia'], $precioEnvio['precio']);
 
 	showResponse([
         'success' => 1,
@@ -157,6 +164,8 @@ function getPrecioDefinitivo(){
 		'courier' => $precioEnvio['courierName'],
 		'distancia' => $precioEnvio['distancia'],
 		'tarifa' => $tariff_id,
+		'cotizacion_id' => $cotizacion_id,
+		'cotizacion_vigencia_minutos' => defined('COTIZACION_PRECIO_TTL_MINUTOS') ? COTIZACION_PRECIO_TTL_MINUTOS : null,
     ]);
 }
 
@@ -213,7 +222,23 @@ function getCobertura($latitud, $longitud){
 			$routeParam = isset($_GET['route']) ? $_GET['route'] : 1;
 			$route = $routeParam == 1 ? true : false;
 			$tarifa = !empty($_GET['tariff_id']) ? $_GET['tariff_id'] : getTarifaDefault($cod_sucursal);
-			$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $tarifa, $route);
+
+			//Couriers externos (GACELA/PICKER/PEDIDOS_YA) cobran por consulta - cache corto
+			//para no disparar una llamada pagada en cada movimiento de pin del usuario.
+			if (in_array($cod_courier, [1, 3, 5])) {
+				require_once "helpers/cache.php";
+				$latR = round($latitud, CACHE_PRECISION_DECIMALES);
+				$lngR = round($longitud, CACHE_PRECISION_DECIMALES);
+				$cacheKey = "cobertura_{$cod_sucursal}_{$cod_courier}_{$latR}_{$lngR}";
+				$precioEnvio = getCache($cacheKey);
+				if ($precioEnvio === null) {
+					$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $tarifa, $route);
+					setCache($cacheKey, $precioEnvio, 180); // 3 minutos
+				}
+			} else {
+				$precioEnvio = getPrecioCourier($cod_courier, $item, $latitud, $longitud, $tarifa, $route);
+			}
+
 			$sucursales[0]['precio'] = $precioEnvio['precio'];
 			$sucursales[0]['metodo_cobertura'] = $precioEnvio['courierName'];
 			$sucursales[0]['distancia'] = $precioEnvio['distancia'];

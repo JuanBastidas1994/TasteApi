@@ -21,6 +21,24 @@ function logCotizacionEnvio($origen, $cod_sucursal, $latitud, $longitud, $distan
     }
 }
 
+// Ultima cotizacion reciente para una sucursal/ubicacion, usada solo para deteccion
+// pasiva de couriers externos (nunca bloquea). Redondea a la misma precision que el
+// cache de distancia (~111m) para tolerar pequeñas variaciones de GPS entre requests.
+function getUltimaCotizacionReciente($cod_sucursal, $latitud, $longitud, $minutos = 15){
+    try{
+        $query = "SELECT precio, fecha FROM tb_cotizacion_envio_log
+            WHERE cod_sucursal = ?
+            AND ROUND(latitud, " . CACHE_PRECISION_DECIMALES . ") = ROUND(?, " . CACHE_PRECISION_DECIMALES . ")
+            AND ROUND(longitud, " . CACHE_PRECISION_DECIMALES . ") = ROUND(?, " . CACHE_PRECISION_DECIMALES . ")
+            AND fecha >= (NOW() - INTERVAL ? MINUTE)
+            AND precio IS NOT NULL AND precio > 0
+            ORDER BY fecha DESC LIMIT 1";
+        return Conexion::buscarRegistro($query, [$cod_sucursal, $latitud, $longitud, $minutos]);
+    }catch(\Throwable $e){
+        return null;
+    }
+}
+
 function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_id = 0, $getRuta = true){
     $cod_sucursal = $sucursal['cod_sucursal'];
     $courier = "";
