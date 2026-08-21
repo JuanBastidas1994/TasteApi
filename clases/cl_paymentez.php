@@ -72,16 +72,14 @@ class cl_paymentez {
         return json_decode($response, true);
     }
     
-    public function initReference($usuario, $preorder_id, $amount){
+    public function initReference($usuario, $preorder_id, $amount, $color = ""){
         $no_tax = $amount / 1.15;
         $tax = $amount - $no_tax;
 
         $phone = normalizarTelefono($usuario['telefono']);
         $phone = ($phone) ? '0'.substr($phone, 4) : "";
 
-        $empresa = (new cl_empresas())->get();
-        $empresaColor = isset($empresa['color']) ? trim($empresa['color']) : "";
-        $color = preg_match('/^#[0-9A-Fa-f]{6}$/', $empresaColor) ? $empresaColor : "#C800A1";
+        $color = preg_match('/^#[0-9A-Fa-f]{6}$/', trim($color)) ? trim($color) : "#C800A1";
 
         $transaction = [
             "locale" => "es",
