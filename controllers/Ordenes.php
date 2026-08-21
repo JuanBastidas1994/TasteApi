@@ -9,6 +9,7 @@ require_once "clases/cl_usuarios.php";
 require_once "clases/cl_empresas.php";
 require_once "clases/cl_sucursales.php";
 require_once "helpers/calcularPrecioEnvio.php";
+require_once "helpers/cotizacionPrecio.php";
 
 $Clordenes = new cl_ordenes();
 $Clusuarios = new cl_usuarios();
@@ -210,56 +211,23 @@ function validarOrdenCorrecta(){
 	}
 	/*CUPON EXISTE*/
 
-	/*INICIO VERIFICAR MONTO*/
-	$isEfectivo = false;
-	$tarjetaAmount = 0;
-	$tipo = "";
+	/*VERIFICAR FORMAS DE PAGO - solo estructura aqui. Los montos (tarjetaAmount, etc)
+	se calculan mas abajo, DESPUES de instanciar cl_carrito, usando el total autoritativo
+	del carrito en vez del total crudo que manda el cliente.*/
 	$MetodoPago = $input['metodoPago'];
-	
+
 	if(count($MetodoPago) > 2){
 	    $return["success"] = 0;
 		$return["mensaje"] = "Excedió el limite de formas de pago";
 		$return["errorCode"] = "MAX_LIMIT_PAYMENT_METHODS";
 		showResponse($return);
 	}
-	
+
 	$msgError = "";
 	$creditAmount = findPaymentCredit($MetodoPago, $cod_usuario, $msgError);
 	if($creditAmount == -1){
 	    showResponse([ 'success' => 0, 'mensaje' => $msgError, 'errorCode' => 'DESCONOCIDO' ]);
 	}
-	if($creditAmount > 0 && count($MetodoPago) == 1){ //Los puntos son la unica forma de pago
-	    if($creditAmount < $total){
-	        showResponse([ 'success' => 0, 'mensaje' => 'Los puntos no cubren la totalidad de la orden', 'errorCode' => 'FALTA_FORMA_PAGO' ]);
-	    }
-	}
-	
-	foreach ($MetodoPago as $key => $pago) {
-		$tipo = $pago['tipo'];
-		$monto = number_format($total - $creditAmount,2);
-		if($tipo == "T"){
-		    $tarjetaAmount = $monto;
-		}else if($tipo == "E"){
-		    $isEfectivo = true;
-		}
-
-		// VALIDAR CANT MAX FORMA DE PAGO
-		if($tipo !== "P"){
-    		$q = "SELECT efp.nombre, COALESCE(sfp.monto_maximo, 0) as monto_maximo
-    		        FROM tb_empresa_forma_pago efp
-    		        LEFT JOIN tb_sucursal_forma_pago sfp ON sfp.cod_sucursal = $cod_sucursal AND sfp.cod_forma_pago = efp.cod_forma_pago
-    		        WHERE efp.cod_forma_pago = '$tipo' AND efp.cod_empresa = " . cod_empresa;
-    		$r = Conexion::buscarRegistro($q);
-    		if($r) {
-    			if($r["monto_maximo"] > 0)
-    				if($monto > $r["monto_maximo"]) {
-    					showResponse([ 'success' => 0, 'mensaje' => "El monto máximo en pago con {$r["nombre"]} es $ {$r["monto_maximo"]}", 'errorCode' => "FORMAS_PAGO_MONTO_MAXIMO_SUPERADO" ]);
-    				}
-    		}
-    		$MetodoPago[$key]['monto'] = $monto;
-		}
-	}
-	$input['metodoPago'] = $MetodoPago;
 
 	$onlyPaymentsMethods = array_column($MetodoPago, 'tipo');
 	if(count($onlyPaymentsMethods) > count(array_unique($onlyPaymentsMethods))){
@@ -269,7 +237,7 @@ function validarOrdenCorrecta(){
 		logAdd(json_encode($return),"respuesta-api","validar-orden");
 		showResponse($return);
     }
-	/*FIN VERIFICAR MONTOS*/
+	/*FIN VERIFICAR FORMAS DE PAGO (estructura)*/
 
 	/*PRODUCTOS*/
 	$num_items = 0;
@@ -364,8 +332,18 @@ function validarOrdenCorrecta(){
 	$Clcarrito = new cl_carrito($input, $cod_sucursal);
 	$cart = $Clcarrito->getArray();
 
-	//TRACKING DE ENVIO - solo trazabilidad, nunca debe bloquear la creacion de la preorden
+	//VALIDACION DE ENVIO - ultima linea de defensa antes de cobrar.
+	//Couriers internos (GOOGLE_MAPS/LINEA_RECTA): si el precio recalculado no coincide
+	//con lo que manda el cliente, se RECHAZA la orden completa (no se corrige y se sigue,
+	//no se cobra un monto distinto al que el usuario ya vio). Solo se deja pasar sin
+	//verificar (fail-open) si el recalculo falla por un problema tecnico real.
+	//Couriers externos (GACELA/PICKER/PEDIDOS_YA): cobran por consulta y su precio puede
+	//variar legitimamente (surge pricing) - nunca se bloquea, solo deteccion pasiva.
 	$input['envio_meta'] = null;
+	$distancia_km = null;
+	$distancia_fuente = null;
+	$courier_precio = null;
+	$cotizacion_id_usado = null; //Solo se llena cuando se valido contra un ticket exacto (Fase 1)
 	if ($tipo == 'delivery') {
 		try {
 			$lat = $metodoEnvio['lat'];
@@ -377,7 +355,6 @@ function validarOrdenCorrecta(){
 				$cod_courier = $courierAsignado['cod_courier'];
 			}
 
-			//TODO - Esto no tiene sentido....
 			$sucursalPrecio = $ClSucursales->getConPrecio($cod_sucursal, $lat, $lng);
 
 			//Igual que getPrecioCourier(): SOLO 1/3/5 son couriers externos con cotizacion en vivo.
@@ -385,21 +362,82 @@ function validarOrdenCorrecta(){
 			$nombresCourier = [1 => 'GACELA', 3 => 'PICKER', 5 => 'PEDIDOS_YA'];
 
 			if (!$sucursalPrecio) {
-				//Sin cobertura para este punto en este momento - no hay nada confiable que calcular
+				//Sin cobertura resoluble para este punto ahora mismo - fail-open, no hay nada confiable que comparar
 				$distancia_km = null;
 				$distancia_fuente = null;
 				$courier_precio = null;
 			} else if (isset($nombresCourier[$cod_courier])) {
-				//Externo: no se vuelve a consultar (evita costo/quota/cotizacion en vivo distinta a la que ya vio el cliente)
+				//Externo: no se vuelve a consultar en vivo (evita costo por consulta y choque con
+				//cotizacion en vivo distinta a la que ya vio el cliente). Solo deteccion pasiva.
 				$distancia_km = $sucursalPrecio['distance'];
 				$distancia_fuente = 'LINEA_RECTA'; //Referencial, el courier externo no entrega distancia real
 				$courier_precio = $nombresCourier[$cod_courier];
+
+				$ultimaCotizacion = getUltimaCotizacionReciente($cod_sucursal, $lat, $lng, 15);
+				if ($ultimaCotizacion && floatval($ultimaCotizacion['precio']) > 0) {
+					$diffPct = abs(floatval($cart['envio']) - floatval($ultimaCotizacion['precio'])) / floatval($ultimaCotizacion['precio']);
+					if ($diffPct > 0.15) {
+						logCotizacionEnvio('ALERTA_PRECIO_EXTERNO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
+					}
+				}
 			} else {
-				//Interno (0, motorizados propios, etc): LINEA_RECTA o GOOGLE_MAPS, usa cache, sin costo real
-				$precioEnvio = getPrecioCourier(0, $sucursalPrecio, $lat, $lng, $cart['tarifa_id'], true);
-				$distancia_km = $precioEnvio['distancia'];
-				$distancia_fuente = $precioEnvio['courierName'];
-				$courier_precio = $precioEnvio['courierName'];
+				//Interno (0, motorizados propios, etc): LINEA_RECTA o GOOGLE_MAPS.
+				$cotizacionIdRecibido = $input['cotizacion_id'] ?? null;
+				$ticket = buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $cart['tarifa_id']);
+
+				if ($ticket) {
+					//Cliente actualizado (Fase 1): se valida contra el ticket exacto que el
+					//usuario ya vio en checkout, sin recalcular nada.
+					$distancia_km = $ticket['distancia_km'];
+					$distancia_fuente = $ticket['courier_nombre'];
+					$courier_precio = $ticket['precio'];
+					$cotizacion_id_usado = $ticket['id'];
+
+					$diff = abs(floatval($cart['envio']) - floatval($courier_precio));
+					$tolerancia = max(0.01, floatval($courier_precio) * 0.01); //1% o 1 centavo, lo que sea mayor
+					if ($diff > $tolerancia) {
+						logCotizacionEnvio('PRECIO_RECHAZADO_TICKET', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
+						showResponse([
+							'success' => 0,
+							'mensaje' => 'El precio de envío cambió, por favor actualiza tu pedido e intenta de nuevo',
+							'errorCode' => 'PRECIO_ENVIO_DESACTUALIZADO'
+						]);
+					}
+				} else if (!empty($cotizacionIdRecibido)) {
+					//Cliente actualizado pero el ticket no existe, expiró, o no corresponde a
+					//esta sucursal/tarifa (ej. el usuario se demoró mucho en checkout) - se
+					//exige refrescar el precio, nunca se recalcula "por las buenas" ni se cobra
+					//un monto que el usuario no vio.
+					logCotizacionEnvio('COTIZACION_INVALIDA', $cod_sucursal, $lat, $lng, null, null, null, $cart['tarifa_id'], $cart['envio']);
+					showResponse([
+						'success' => 0,
+						'mensaje' => 'Tu cotización de envío expiró, por favor actualiza el precio e intenta de nuevo',
+						'errorCode' => 'COTIZACION_EXPIRADA'
+					]);
+				} else {
+					//Cliente viejo, sin cotizacion_id (Fase 0): recalculo autoritativo en vivo,
+					//barato porque usa el cache de distancia de 120 dias.
+					$precioEnvio = getPrecioCourier(0, $sucursalPrecio, $lat, $lng, $cart['tarifa_id'], true);
+					$distancia_km = $precioEnvio['distancia'];
+					$distancia_fuente = $precioEnvio['courierName'];
+					$courier_precio = $precioEnvio['precio'];
+
+					if ($courier_precio !== null && floatval($courier_precio) > 0) {
+						$diff = abs(floatval($cart['envio']) - floatval($courier_precio));
+						$tolerancia = max(0.01, floatval($courier_precio) * 0.01);
+						if ($diff > $tolerancia) {
+							logCotizacionEnvio('PRECIO_RECHAZADO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
+							showResponse([
+								'success' => 0,
+								'mensaje' => 'El precio de envío cambió, por favor actualiza tu pedido e intenta de nuevo',
+								'errorCode' => 'PRECIO_ENVIO_DESACTUALIZADO'
+							]);
+						}
+					} else {
+						//No se pudo verificar por un problema tecnico (ej. Google Maps inalcanzable) - unico caso fail-open
+						logCotizacionEnvio('PRECIO_FALLBACK_TECNICO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
+					}
+				}
 			}
 
 			$input['envio_meta'] = [
@@ -408,14 +446,19 @@ function validarOrdenCorrecta(){
 				'courier_precio' => $courier_precio,
 				'tariff_id' => $cart['tarifa_id'],
 				'device_type' => defined('device_type') ? device_type : null,
+				'cotizacion_id' => $cotizacion_id_usado,
 			];
+
+			//Se guarda siempre en el registro permanente de la orden, no solo en el log de trazabilidad
+			$input['courier_envio'] = $distancia_fuente;
+			$input['distancia_envio_km'] = $distancia_km;
 
 			logCotizacionEnvio('PRECIO_VALIDAR', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
 		} catch (\Throwable $e) {
 			logAdd("Error calculando envio_meta: " . $e->getMessage(), "error", "validar-orden");
 		}
 	}
-	//FIN TRACKING DE ENVIO
+	//FIN VALIDACION DE ENVIO
 
 	if ($tipo == 'delivery' && $cart['envio'] <= 0) {
 		$promoAplica = $cart['promo_envio']['aplica'] ?? false;
@@ -423,6 +466,46 @@ function validarOrdenCorrecta(){
 			showResponse([ 'success' => 0, 'mensaje' => 'El costo de envío no es válido, por favor intenta de nuevo', 'errorCode' => 'ENVIO_INVALIDO' ]);
 		}
 	}
+
+	/*MONTOS DE PAGO - usa el total autoritativo de cl_carrito (ya validado arriba),
+	nunca el total crudo que manda el cliente.*/
+	$isEfectivo = false;
+	$tarjetaAmount = 0;
+	$totalAutoritativo = floatval($cart['total']);
+
+	if($creditAmount > 0 && count($MetodoPago) == 1){ //Los puntos son la unica forma de pago
+	    if($creditAmount < $totalAutoritativo){
+	        showResponse([ 'success' => 0, 'mensaje' => 'Los puntos no cubren la totalidad de la orden', 'errorCode' => 'FALTA_FORMA_PAGO' ]);
+	    }
+	}
+
+	foreach ($MetodoPago as $key => $pago) {
+		$tipoPago = $pago['tipo'];
+		$monto = number_format($totalAutoritativo - $creditAmount,2);
+		if($tipoPago == "T"){
+		    $tarjetaAmount = $monto;
+		}else if($tipoPago == "E"){
+		    $isEfectivo = true;
+		}
+
+		// VALIDAR CANT MAX FORMA DE PAGO
+		if($tipoPago !== "P"){
+    		$q = "SELECT efp.nombre, COALESCE(sfp.monto_maximo, 0) as monto_maximo
+    		        FROM tb_empresa_forma_pago efp
+    		        LEFT JOIN tb_sucursal_forma_pago sfp ON sfp.cod_sucursal = $cod_sucursal AND sfp.cod_forma_pago = efp.cod_forma_pago
+    		        WHERE efp.cod_forma_pago = '$tipoPago' AND efp.cod_empresa = " . cod_empresa;
+    		$r = Conexion::buscarRegistro($q);
+    		if($r) {
+    			if($r["monto_maximo"] > 0)
+    				if($monto > $r["monto_maximo"]) {
+    					showResponse([ 'success' => 0, 'mensaje' => "El monto máximo en pago con {$r["nombre"]} es $ {$r["monto_maximo"]}", 'errorCode' => "FORMAS_PAGO_MONTO_MAXIMO_SUPERADO" ]);
+    				}
+    		}
+    		$MetodoPago[$key]['monto'] = $monto;
+		}
+	}
+	$input['metodoPago'] = $MetodoPago;
+	/*FIN MONTOS DE PAGO*/
 
 	$input['iva'] = $cart['iva'];
 	$input['descuento'] = $cart['descuento'];
