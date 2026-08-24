@@ -1,5 +1,13 @@
 <?php
 
+// A nivel de archivo, no por funcion: getUltimaCotizacionReciente() usaba
+// CACHE_PRECISION_DECIMALES sin haber cargado este helper (solo se ejecuta
+// para couriers externos, que nunca pasan por getDistanciaRuta(), la unica
+// funcion de este archivo que si lo requeria) - "Undefined constant" en
+// producción, sera un Error fatal en PHP 8+. Con esto ya no depende de que
+// cada función que use algo de cache.php se acuerde de requerirlo.
+require_once __DIR__ . '/cache.php';
+
 // Registro de solo-inserción de cada cotización de envío calculada, exitosa o no.
 // No representa el estado actual de nada (una ubicación puede cotizarse muchas
 // veces) - es historial para poder investigar qué courier/distancia/tarifa se
