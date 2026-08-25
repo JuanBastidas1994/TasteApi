@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/../helpers/calcularPrecioEnvio.php';
+require_once __DIR__ . '/../helpers/cotizacionPrecio.php';
+
 class cl_carrito
 {
     public $cod_usuario;
@@ -7,6 +10,20 @@ class cl_carrito
     public $productos = null, $subtotal, $iva, $total, $service = 0, $descuento = 0, $descuento_no_tax, $envio = 0, $peso = 0;
     public $base0 = 0, $base12 = 0, $desxitem = 0;
     public $tarifa_id = 0;
+
+    // Envio real calculado internamente cuando el request trae 'entrega' (lat/lng).
+    // Unica fuente de verdad del precio de envio - ver plan "cl_carrito como
+    // unica fuente del precio de envio". Si 'entrega' llega, $array['envio']
+    // nunca se usa (salvo la unica excepcion: courier externo fuera de
+    // checkout, donde tampoco se le paga por una consulta - ahi se calcula un
+    // estimado interno igual, sin tocar el envio del cliente).
+    public $cotizacion_id = null;
+    public $distancia_envio = null;
+    public $courier_envio = null;
+    // Se llena solo si 'entrega' llega marcada como delivery pero sin lat/lng
+    // (estado erroneo, no deberia pasar nunca) - el llamador (Carrito.php /
+    // Ordenes.php) debe rechazar con success:0 si esto no es null.
+    public $envioError = null;
     public $num_items = 0;
     public $tiempo_preparacion = 0;
     public $tipo_descuento = 0; //0 PORCENTAJE - 1 EFECTIVO
@@ -379,7 +396,11 @@ class cl_carrito
         
         $promoEnvio = null;
         //Calcular Envio
-        $envio = $array['envio'];
+        $envio = $array['envio'] ?? 0;
+
+        //Si llega 'entrega' con ubicacion real, el carrito calcula el envio el mismo - $array['envio'] deja de usarse (ver calcularEnvioReal() para
+        //el detalle completo, incluida la unica excepcion).
+        $envio = $this->calcularEnvioReal($array, $cod_sucursal, $tarifa_id, $envio, $Clsucursales);
 
         $getIsEnvioGrabaIva = true;
         if ($Clsucursales->getSucursalEnvioGravaIVA($cod_sucursal) == 1) {
@@ -445,6 +466,141 @@ class cl_carrito
         $this->observacion = $observacion;
     }
 
+    // Precio real de envio cuando llega 'entrega' (lat/lng) - unica fuente de
+    // verdad, ver plan "cl_carrito como unica fuente del precio de envio".
+    // Si 'entrega' no llega (cliente viejo, pickup/onsite), devuelve $envio
+    // tal cual sin tocar nada.
+    //
+    // Reglas, en orden:
+    // 1. Ticket exacto vigente (cotizacion_id de una llamada anterior a
+    //    /carrito) -> se usa tal cual, sin recalcular. Aplica a interno o externo.
+    // 2. Externo, fuera de checkout (no confirmarPrecioExterno) -> cobra por
+    //    consulta, no se le pregunta nada en vivo. Se respeta $envio del
+    //    cliente (unica excepcion real a "nunca usar $envio si entrega llega"),
+    //    solo con deteccion pasiva contra la ultima cotizacion reciente.
+    // 3. Cualquier otro caso (interno siempre, o externo confirmando en
+    //    checkout) -> $envio del cliente ya no se usa en absoluto:
+    //    a. Externo confirmando: intenta el precio real pagado primero (cache
+    //       corto para no duplicar consultas).
+    //    b. Si (a) no aplica o fallo: calculo interno de siempre
+    //       (GOOGLE_MAPS/LINEA_RECTA, getPrecioCourier con cod_courier=0).
+    //    c. Si ni eso se pudo (no se pudo resolver cobertura del punto):
+    //       linea recta por matematica pura desde las coordenadas base de la
+    //       sucursal - siempre calculable, nunca depende de nada externo.
+    public function calcularEnvioReal($array, $cod_sucursal, $tarifa_id, $envio, $Clsucursales)
+    {
+        $entrega = $array['entrega'] ?? null;
+        if (!$entrega) {
+            //Cliente viejo, nunca manda 'entrega' - unico caso donde se confia en $array['envio'].
+            return $envio;
+        }
+
+        //Mismos alias que ya acepta el checkout para "es delivery".
+        $metodo = strtolower($entrega['metodo'] ?? '');
+        $esDelivery = in_array($metodo, ['delivery', 'd', 'envio']);
+        if (!$esDelivery) {
+            return 0;
+        }
+
+        if (empty($entrega['lat']) || empty($entrega['lng'])) {
+            $this->envioError = 'No se pudo determinar el costo de envío: falta la ubicación de entrega';
+            return 0;
+        }
+
+        $entregaLat = $entrega['lat'];
+        $entregaLng = $entrega['lng'];
+        $confirmarExterno = !empty($entrega['confirmarPrecioExterno']);
+        $cotizacionIdRecibido = $array['cotizacion_id'] ?? null;
+
+        $cod_courier = 0;
+        $courierAsignado = $Clsucursales->getCourier($cod_sucursal);
+        if ($courierAsignado) {
+            $cod_courier = $courierAsignado['cod_courier'];
+        }
+        $nombresCourierExternos = [1 => 'GACELA', 3 => 'PICKER', 5 => 'PEDIDOS_YA'];
+        $esExterno = isset($nombresCourierExternos[$cod_courier]);
+
+        //1. Ticket exacto vigente - se usa tal cual, sin recalcular nada.
+        $ticket = $cotizacionIdRecibido ? buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $tarifa_id) : null;
+        if ($ticket) {
+            $this->distancia_envio = $ticket['distancia_km'];
+            $this->courier_envio = $ticket['courier_nombre'];
+            $this->cotizacion_id = $ticket['id'];
+            return floatval($ticket['precio']);
+        }
+
+        //2. Externo fuera de checkout - unica excepcion, se respeta $envio.
+        if ($esExterno && !$confirmarExterno) {
+            $ultimaCotizacion = getUltimaCotizacionReciente($cod_sucursal, $entregaLat, $entregaLng, 15);
+            if ($ultimaCotizacion && floatval($ultimaCotizacion['precio']) > 0 && $envio > 0) {
+                $diffPct = abs($envio - floatval($ultimaCotizacion['precio'])) / floatval($ultimaCotizacion['precio']);
+                if ($diffPct > 0.15) {
+                    logCotizacionEnvio('ALERTA_PRECIO_EXTERNO', $cod_sucursal, $entregaLat, $entregaLng, null, 'LINEA_RECTA', $nombresCourierExternos[$cod_courier], $tarifa_id, $envio);
+                }
+            }
+            return $envio;
+        }
+
+        //3. Interno siempre, o externo confirmando en checkout - $envio del
+        //cliente ya no se usa en ningun caso de aqui en adelante.
+        $sucursalPrecio = null;
+        $precioEnvio = null;
+
+        //3a. Externo confirmando: precio real pagado primero.
+        if ($esExterno) {
+            try {
+                $sucursalPrecio = $Clsucursales->getConPrecio($cod_sucursal, $entregaLat, $entregaLng);
+                if ($sucursalPrecio) {
+                    $cacheKey = "precio_ext_{$cod_sucursal}_{$cod_courier}_" . round($entregaLat, CACHE_PRECISION_DECIMALES) . "_" . round($entregaLng, CACHE_PRECISION_DECIMALES);
+                    $precioEnvio = getCache($cacheKey);
+                    if ($precioEnvio === null) {
+                        $precioEnvio = getPrecioCourier($cod_courier, $sucursalPrecio, $entregaLat, $entregaLng, $tarifa_id, false);
+                        setCache($cacheKey, $precioEnvio, 180); //3 min - evita duplicar consultas pagadas si /carrito se llama varias veces seguidas
+                    }
+                }
+            } catch (\Throwable $e) {
+                $precioEnvio = null; //courier externo inalcanzable - cae al camino interno de 3b, NUNCA a $envio
+            }
+        }
+
+        //3b. Interno, o el externo de 3a fallo: calculo interno de siempre.
+        if (!$precioEnvio) {
+            try {
+                $sucursalPrecio = $sucursalPrecio ?? $Clsucursales->getConPrecio($cod_sucursal, $entregaLat, $entregaLng);
+                if ($sucursalPrecio) {
+                    $precioEnvio = getPrecioCourier(0, $sucursalPrecio, $entregaLat, $entregaLng, $tarifa_id, true);
+                }
+            } catch (\Throwable $e) {
+                $precioEnvio = null;
+            }
+        }
+
+        //3c. Ni siquiera se pudo resolver la cobertura del punto - ultimo
+        //recurso: linea recta por matematica pura, nunca $envio del cliente.
+        if (!$precioEnvio) {
+            $officeBasico = $Clsucursales->get($cod_sucursal);
+            if ($officeBasico) {
+                $distanciaPura = calcularDistanciaLineaRecta($officeBasico['latitud'], $officeBasico['longitud'], $entregaLat, $entregaLng);
+                $precioPuro = $tarifa_id > 0 ? floatval(getPriceWithTariff($tarifa_id, $distanciaPura)) : 0;
+                if ($precioPuro <= 0) $precioPuro = floatval(calculatePriceByDistance($officeBasico, $distanciaPura));
+                $precioEnvio = ['courierName' => 'LINEA_RECTA', 'precio' => $precioPuro, 'distancia' => $distanciaPura];
+            }
+        }
+
+        if ($precioEnvio) {
+            $envioReal = floatval($precioEnvio['precio']);
+            $this->distancia_envio = $precioEnvio['distancia'];
+            $this->courier_envio = $precioEnvio['courierName'];
+            $this->cotizacion_id = crearCotizacionPrecio($cod_sucursal, $precioEnvio['courierName'], $tarifa_id, $entregaLat, $entregaLng, $precioEnvio['distancia'], $envioReal);
+            return $envioReal;
+        }
+
+        //Ni siquiera esto funciono (sucursal inexistente, no deberia pasar -
+        //ya se valido antes) - $envio queda en lo que ya traiga, lo cual ya
+        //dispara el chequeo de "envio invalido" que existe en Ordenes.php.
+        return $envio;
+    }
+
     public function getArray()
     {
         $car['productos'] = $this->productos;
@@ -456,6 +612,10 @@ class cl_carrito
         $car['subtotal_without_envio'] = $this->subtotal_without_envio;
         $car['subtotal_only_products'] = $this->subtotal_only_products;
         $car['envio'] = $this->envio;
+        $car['cotizacion_id'] = $this->cotizacion_id;
+        $car['envio_error'] = $this->envioError;
+        $car['distancia_envio'] = $this->distancia_envio;
+        $car['courier_envio'] = $this->courier_envio;
         $car['desc_envio'] = $this->desc_envio;
         $car['promo_envio'] = $this->promo_envio;
         $car['desxitem'] = $this->desxitem;

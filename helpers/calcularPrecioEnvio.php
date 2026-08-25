@@ -8,6 +8,20 @@
 // cada función que use algo de cache.php se acuerde de requerirlo.
 require_once __DIR__ . '/cache.php';
 
+// Distancia en linea recta por matematica pura (haversine, misma formula que
+// ya usa la consulta SQL de getConPrecio) - no depende de poligonos de
+// cobertura, cache, ni ninguna API externa. Ultimo recurso cuando ni siquiera
+// se puede resolver la cobertura del punto: nunca hay que confiar en el envio
+// que mande el cliente, esto siempre se puede calcular con solo las
+// coordenadas base de la sucursal.
+function calcularDistanciaLineaRecta($lat1, $lng1, $lat2, $lng2){
+    $lat1 = deg2rad($lat1); $lng1 = deg2rad($lng1);
+    $lat2 = deg2rad($lat2); $lng2 = deg2rad($lng2);
+    $cos = cos($lat1) * cos($lat2) * cos($lng2 - $lng1) + sin($lat1) * sin($lat2);
+    $cos = max(-1, min(1, $cos)); //evita NAN por error de redondeo en puntos casi identicos
+    return 6378 * acos($cos);
+}
+
 // Registro de solo-inserción de cada cotización de envío calculada, exitosa o no.
 // No representa el estado actual de nada (una ubicación puede cotizarse muchas
 // veces) - es historial para poder investigar qué courier/distancia/tarifa se
