@@ -329,136 +329,42 @@ function validarOrdenCorrecta(){
 	/*CARRITO PARA LLENAR DATA FALTANTE*/
 	require_once "clases/cl_empresas.php";
 	require_once "clases/cl_carrito.php";
+
+	//cl_carrito es ahora la unica fuente del precio de envio (ver plan "cl_carrito
+	//como unica fuente del precio de envio"). Se le pasa la ubicacion real que
+	//metodoEnvio YA trae siempre (de cualquier cliente, viejo o nuevo) - por eso
+	//la proteccion de precio no depende de que el cliente se haya actualizado.
+	//confirmarPrecioExterno siempre false aqui: nunca se re-consulta un courier
+	//externo en vivo al momento de cobrar (evita costo doble y choque con su
+	//surge pricing) - se valida contra el ticket que ya se creo en checkout.
+	$input['entrega'] = [
+		'metodo' => $tipo,
+		'lat' => $metodoEnvio['lat'] ?? null,
+		'lng' => $metodoEnvio['lng'] ?? null,
+		'confirmarPrecioExterno' => false,
+	];
 	$Clcarrito = new cl_carrito($input, $cod_sucursal);
 	$cart = $Clcarrito->getArray();
 
-	//VALIDACION DE ENVIO - ultima linea de defensa antes de cobrar.
-	//Couriers internos (GOOGLE_MAPS/LINEA_RECTA): si el precio recalculado no coincide
-	//con lo que manda el cliente, se RECHAZA la orden completa (no se corrige y se sigue,
-	//no se cobra un monto distinto al que el usuario ya vio). Solo se deja pasar sin
-	//verificar (fail-open) si el recalculo falla por un problema tecnico real.
-	//Couriers externos (GACELA/PICKER/PEDIDOS_YA): cobran por consulta y su precio puede
-	//variar legitimamente (surge pricing) - nunca se bloquea, solo deteccion pasiva.
-	$input['envio_meta'] = null;
-	$distancia_km = null;
-	$distancia_fuente = null;
-	$courier_precio = null;
-	$cotizacion_id_usado = null; //Solo se llena cuando se valido contra un ticket exacto (Fase 1)
-	if ($tipo == 'delivery') {
-		try {
-			$lat = $metodoEnvio['lat'];
-			$lng = $metodoEnvio['lng'];
-
-			$cod_courier = 0;
-			$courierAsignado = $ClSucursales->getCourier($cod_sucursal);
-			if ($courierAsignado) {
-				$cod_courier = $courierAsignado['cod_courier'];
-			}
-
-			$sucursalPrecio = $ClSucursales->getConPrecio($cod_sucursal, $lat, $lng);
-
-			//Igual que getPrecioCourier(): SOLO 1/3/5 son couriers externos con cotizacion en vivo.
-			//Cualquier otro valor (0, motorizados propios, etc) usa el mismo camino interno que /sucursales/precio.
-			$nombresCourier = [1 => 'GACELA', 3 => 'PICKER', 5 => 'PEDIDOS_YA'];
-
-			if (!$sucursalPrecio) {
-				//Sin cobertura resoluble para este punto ahora mismo - fail-open, no hay nada confiable que comparar
-				$distancia_km = null;
-				$distancia_fuente = null;
-				$courier_precio = null;
-			} else if (isset($nombresCourier[$cod_courier])) {
-				//Externo: no se vuelve a consultar en vivo (evita costo por consulta y choque con
-				//cotizacion en vivo distinta a la que ya vio el cliente). Solo deteccion pasiva.
-				$distancia_km = $sucursalPrecio['distance'];
-				$distancia_fuente = 'LINEA_RECTA'; //Referencial, el courier externo no entrega distancia real
-				$courier_precio = $nombresCourier[$cod_courier];
-
-				$ultimaCotizacion = getUltimaCotizacionReciente($cod_sucursal, $lat, $lng, 15);
-				if ($ultimaCotizacion && floatval($ultimaCotizacion['precio']) > 0) {
-					$diffPct = abs(floatval($cart['envio']) - floatval($ultimaCotizacion['precio'])) / floatval($ultimaCotizacion['precio']);
-					if ($diffPct > 0.15) {
-						logCotizacionEnvio('ALERTA_PRECIO_EXTERNO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
-					}
-				}
-			} else {
-				//Interno (0, motorizados propios, etc): LINEA_RECTA o GOOGLE_MAPS.
-				$cotizacionIdRecibido = $input['cotizacion_id'] ?? null;
-				$ticket = buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $cart['tarifa_id']);
-
-				if ($ticket) {
-					//Cliente actualizado (Fase 1): se valida contra el ticket exacto que el
-					//usuario ya vio en checkout, sin recalcular nada.
-					$distancia_km = $ticket['distancia_km'];
-					$distancia_fuente = $ticket['courier_nombre'];
-					$courier_precio = $ticket['precio'];
-					$cotizacion_id_usado = $ticket['id'];
-
-					$diff = abs(floatval($cart['envio']) - floatval($courier_precio));
-					$tolerancia = max(0.01, floatval($courier_precio) * 0.01); //1% o 1 centavo, lo que sea mayor
-					if ($diff > $tolerancia) {
-						logCotizacionEnvio('PRECIO_RECHAZADO_TICKET', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
-						showResponse([
-							'success' => 0,
-							'mensaje' => 'El precio de envío cambió, por favor actualiza tu pedido e intenta de nuevo',
-							'errorCode' => 'PRECIO_ENVIO_DESACTUALIZADO'
-						]);
-					}
-				} else if (!empty($cotizacionIdRecibido)) {
-					//Cliente actualizado pero el ticket no existe, expiró, o no corresponde a
-					//esta sucursal/tarifa (ej. el usuario se demoró mucho en checkout) - se
-					//exige refrescar el precio, nunca se recalcula "por las buenas" ni se cobra
-					//un monto que el usuario no vio.
-					logCotizacionEnvio('COTIZACION_INVALIDA', $cod_sucursal, $lat, $lng, null, null, null, $cart['tarifa_id'], $cart['envio']);
-					showResponse([
-						'success' => 0,
-						'mensaje' => 'Tu cotización de envío expiró, por favor actualiza el precio e intenta de nuevo',
-						'errorCode' => 'COTIZACION_EXPIRADA'
-					]);
-				} else {
-					//Cliente viejo, sin cotizacion_id (Fase 0): recalculo autoritativo en vivo,
-					//barato porque usa el cache de distancia de 120 dias.
-					$precioEnvio = getPrecioCourier(0, $sucursalPrecio, $lat, $lng, $cart['tarifa_id'], true);
-					$distancia_km = $precioEnvio['distancia'];
-					$distancia_fuente = $precioEnvio['courierName'];
-					$courier_precio = $precioEnvio['precio'];
-
-					if ($courier_precio !== null && floatval($courier_precio) > 0) {
-						$diff = abs(floatval($cart['envio']) - floatval($courier_precio));
-						$tolerancia = max(0.01, floatval($courier_precio) * 0.01);
-						if ($diff > $tolerancia) {
-							logCotizacionEnvio('PRECIO_RECHAZADO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
-							showResponse([
-								'success' => 0,
-								'mensaje' => 'El precio de envío cambió, por favor actualiza tu pedido e intenta de nuevo',
-								'errorCode' => 'PRECIO_ENVIO_DESACTUALIZADO'
-							]);
-						}
-					} else {
-						//No se pudo verificar por un problema tecnico (ej. Google Maps inalcanzable) - unico caso fail-open
-						logCotizacionEnvio('PRECIO_FALLBACK_TECNICO', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
-					}
-				}
-			}
-
-			$input['envio_meta'] = [
-				'distancia_km' => $distancia_km,
-				'distancia_fuente' => $distancia_fuente,
-				'courier_precio' => $courier_precio,
-				'tariff_id' => $cart['tarifa_id'],
-				'device_type' => defined('device_type') ? device_type : null,
-				'cotizacion_id' => $cotizacion_id_usado,
-			];
-
-			//Se guarda siempre en el registro permanente de la orden, no solo en el log de trazabilidad
-			$input['courier_envio'] = $distancia_fuente;
-			$input['distancia_envio_km'] = $distancia_km;
-
-			logCotizacionEnvio('PRECIO_VALIDAR', $cod_sucursal, $lat, $lng, $distancia_km, $distancia_fuente, $courier_precio, $cart['tarifa_id'], $cart['envio']);
-		} catch (\Throwable $e) {
-			logAdd("Error calculando envio_meta: " . $e->getMessage(), "error", "validar-orden");
-		}
+	if ($cart['envio_error']) {
+		showResponse([
+			'success' => 0,
+			'mensaje' => $cart['envio_error'],
+			'errorCode' => 'ENTREGA_SIN_UBICACION'
+		]);
 	}
-	//FIN VALIDACION DE ENVIO
+
+	//Se guarda siempre en el registro permanente de la orden, no solo en el log de trazabilidad
+	$input['courier_envio'] = $cart['courier_envio'];
+	$input['distancia_envio_km'] = $cart['distancia_envio'];
+	$input['envio_meta'] = [
+		'distancia_km' => $cart['distancia_envio'],
+		'distancia_fuente' => $cart['courier_envio'],
+		'courier_precio' => $cart['envio'],
+		'tariff_id' => $cart['tarifa_id'],
+		'device_type' => defined('device_type') ? device_type : null,
+		'cotizacion_id' => $cart['cotizacion_id'],
+	];
 
 	if ($tipo == 'delivery' && $cart['envio'] <= 0) {
 		$promoAplica = $cart['promo_envio']['aplica'] ?? false;
