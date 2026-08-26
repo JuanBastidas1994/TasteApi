@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../helpers/calcularPrecioEnvio.php';
 require_once __DIR__ . '/../helpers/cotizacionPrecio.php';
+require_once __DIR__ . '/../helpers/couriers.php';
 
 class cl_carrito
 {
@@ -65,7 +66,6 @@ class cl_carrito
 
     public function calcular($array, $cod_sucursal)
     { //getSucursalEnvioGravaIVA
-        $Clempresas = new cl_empresas();
         $Clproductos = new cl_productos();
         $Clsucursales = new cl_sucursales();
         $Clproductos->setSucursal($cod_sucursal);
@@ -402,29 +402,28 @@ class cl_carrito
         //el detalle completo, incluida la unica excepcion).
         $envio = $this->calcularEnvioReal($array, $cod_sucursal, $tarifa_id, $envio, $Clsucursales);
 
-        $getIsEnvioGrabaIva = true;
-        if ($Clsucursales->getSucursalEnvioGravaIVA($cod_sucursal) == 1) {
-            $getIsEnvioGrabaIva = false;
-            $envioWithoutTax = $this->noRound($envio / $this->DivitIva, false, 2);
-            $base12 = $base12 + $envioWithoutTax;
-        } 
-        
         if ($envio > 0)
             $descDataEnvio = $this->getDescuentoEnvio($envio, $totalOrderWithTax, $cod_sucursal, $promoEnvio);
         else
             $descDataEnvio = null;
-         
-        if($this->officeTaxable){
-            if($getIsEnvioGrabaIva) {
-                if ($Clempresas->getIsEnvioGrabaIva() == 1) {
-                    $base12 = $base12 + $envio;
-                } else
-                    $base0 = $base0 + $envio;
+
+        //Couriers externos (Gacela/Picker/PedidosYa) cotizan un precio final que ya
+        //incluye IVA - hay que sacar la base neta. Todo lo demas (tarifa propia,
+        //linea recta, o el envio del cliente cuando no llega 'entrega') no incluye
+        //IVA, se suma directo y el impuesto se calcula despues sobre base12.
+        $courierExterno = in_array($this->courier_envio, COURIERS_EXTERNOS, true);
+
+        if ($this->officeTaxable) {
+            if ($courierExterno) {
+                $envioWithoutTax = $this->noRound($envio / $this->DivitIva, false, 2);
+                $base12 = $base12 + $envioWithoutTax;
+            } else {
+                $base12 = $base12 + $envio;
             }
-        }
-        else
+        } else {
             $base0 = $base0 + $envio;
-            
+        }
+
         $this->logs[] = [ 'base0' => $base0 ];
 
         
@@ -517,8 +516,7 @@ class cl_carrito
         if ($courierAsignado) {
             $cod_courier = $courierAsignado['cod_courier'];
         }
-        $nombresCourierExternos = [1 => 'GACELA', 3 => 'PICKER', 5 => 'PEDIDOS_YA'];
-        $esExterno = isset($nombresCourierExternos[$cod_courier]);
+        $esExterno = isset(COURIERS_EXTERNOS[$cod_courier]);
 
         //1. Ticket exacto vigente - se usa tal cual, sin recalcular nada.
         $ticket = $cotizacionIdRecibido ? buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $tarifa_id) : null;
@@ -535,7 +533,7 @@ class cl_carrito
             if ($ultimaCotizacion && floatval($ultimaCotizacion['precio']) > 0 && $envio > 0) {
                 $diffPct = abs($envio - floatval($ultimaCotizacion['precio'])) / floatval($ultimaCotizacion['precio']);
                 if ($diffPct > 0.15) {
-                    logCotizacionEnvio('ALERTA_PRECIO_EXTERNO', $cod_sucursal, $entregaLat, $entregaLng, null, 'LINEA_RECTA', $nombresCourierExternos[$cod_courier], $tarifa_id, $envio);
+                    logCotizacionEnvio('ALERTA_PRECIO_EXTERNO', $cod_sucursal, $entregaLat, $entregaLng, null, 'LINEA_RECTA', COURIERS_EXTERNOS[$cod_courier], $tarifa_id, $envio);
                 }
             }
             return $envio;

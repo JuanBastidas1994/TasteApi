@@ -7,6 +7,7 @@
 // producción, sera un Error fatal en PHP 8+. Con esto ya no depende de que
 // cada función que use algo de cache.php se acuerde de requerirlo.
 require_once __DIR__ . '/cache.php';
+require_once __DIR__ . '/couriers.php';
 
 // Distancia en linea recta por matematica pura (haversine, misma formula que
 // ya usa la consulta SQL de getConPrecio) - no depende de poligonos de
@@ -66,14 +67,14 @@ function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_
     $courier = "";
     $precio = 0;
     $distancia = false;
-    if($cod_courier == 1){
-        $courier = "GACELA";
+    if($cod_courier == COURIER_GACELA){
+        $courier = COURIERS_EXTERNOS[COURIER_GACELA];
         $precio = getPrecioGacela($cod_sucursal, $latitud, $longitud);
-    }else if($cod_courier == 3){
-        $courier = "PICKER";
+    }else if($cod_courier == COURIER_PICKER){
+        $courier = COURIERS_EXTERNOS[COURIER_PICKER];
         $precio = getPrecioPicker($cod_sucursal, $latitud, $longitud);
-    }else if($cod_courier == 5){
-        $courier = "PEDIDOS_YA";
+    }else if($cod_courier == COURIER_PEDIDOS_YA){
+        $courier = COURIERS_EXTERNOS[COURIER_PEDIDOS_YA];
         $precio = getPrecioPedidosYa($sucursal, $latitud, $longitud);
     }else{
         if($getRuta){
