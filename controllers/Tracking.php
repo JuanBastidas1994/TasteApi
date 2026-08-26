@@ -177,7 +177,7 @@ function getTimeline($historial, $tipo, $currentStatus, $asignacionMotorizado = 
         // el viejo paso 'ENVIANDO' del catálogo queda absorbido ahí — no se pinta aparte.
         // Si no hay $asignacionMotorizado (courier externo, o cancelada antes de asignar) cae
         // al comportamiento de siempre, sin tocar nada.
-        if($tipo === 'DELIVERY' && $asignacionMotorizado !== null && $currentStatus !== 'ANULADA' && $currentStatus !== 'CANCELADA'){
+        if($tipo === 'DELIVERY' && !empty($asignacionMotorizado) && $currentStatus !== 'ANULADA' && $currentStatus !== 'CANCELADA'){
             if($estado === 'ASIGNADA'){
                 // Marca "current" en el sub-timeline solo si el pedido sigue en este tramo —
                 // si ya está ENTREGADA/NO_ENTREGADA, ese honor le toca al paso final de abajo.
