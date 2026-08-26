@@ -449,7 +449,16 @@ class cl_carrito
         $this->subtotal_only_products = $this->noRound($totalOrderWithoutDiscount, false, 2);
         $this->subtotal_without_envio = $this->noRound($subtotal_without_envio, false, 2);
         $this->subtotal = $this->noRound($subtotal, false, 2);
-        $this->envio = $this->noRound($envio, false, 2);
+
+        //Envio mostrado (web/app) siempre con IVA incluido, para que subtotal + envio + iva
+        //cuadre visualmente con el total. No afecta base0/base12/iva/total: esos ya se
+        //calcularon arriba con el envio real (con o sin IVA segun corresponda).
+        $envioConIva = $envio;
+        if ($this->officeTaxable && !$courierExterno) {
+            $envioConIva = $this->noRound($envio * $this->DivitIva, false, 2);
+        }
+        $this->envio = $this->noRound($envioConIva, false, 2);
+
         $this->desc_envio = $descDataEnvio;
         $this->promo_envio = $promoEnvio;
         $this->desxitem = $desxitem;
