@@ -413,7 +413,12 @@ class cl_carrito
         //IVA, se suma directo y el impuesto se calcula despues sobre base12.
         $courierExterno = in_array($this->courier_envio, COURIERS_EXTERNOS, true);
 
-        if ($this->officeTaxable) {
+        //Si el envio graba IVA no depende de si la sucursal grava IVA en productos
+        //(officeTaxable / tb_sucursales.grava_iva) - es un flag propio de la sucursal:
+        //tb_sucursales.envio_grava_iva.
+        $envioGravaIva = $Clsucursales->getSucursalEnvioGravaIVA($cod_sucursal) == 1;
+
+        if ($envioGravaIva) {
             if ($courierExterno) {
                 $envioWithoutTax = $this->noRound($envio / $this->DivitIva, false, 2);
                 $base12 = $base12 + $envioWithoutTax;
@@ -454,7 +459,7 @@ class cl_carrito
         //cuadre visualmente con el total. No afecta base0/base12/iva/total: esos ya se
         //calcularon arriba con el envio real (con o sin IVA segun corresponda).
         $envioConIva = $envio;
-        if ($this->officeTaxable && !$courierExterno) {
+        if ($envioGravaIva && !$courierExterno) {
             $envioConIva = $this->noRound($envio * $this->DivitIva, false, 2);
         }
         $this->envio = $this->noRound($envioConIva, false, 2);
