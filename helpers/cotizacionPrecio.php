@@ -31,16 +31,23 @@ function crearCotizacionPrecio($cod_sucursal, $courier_nombre, $tariff_id, $lati
     }
 }
 
-// Busca el ticket por ID exacto, exige que no haya expirado y que corresponda a la
-// misma sucursal/tarifa de la orden que se esta validando. No compara coordenadas
-// (para eso esta el ID) ni recalcula nada - es una busqueda directa.
-function buscarCotizacionValida($cotizacion_id, $cod_sucursal, $tariff_id){
+// Busca el ticket por ID exacto, exige que no haya expirado, que corresponda a
+// la misma sucursal/tarifa, y que la ubicacion actual siga siendo la misma
+// (redondeada a la misma precision que el cache de distancia, ~111m) - esto
+// ultimo es obligatorio: dos sucursales/tarifas pueden coincidir aunque el
+// punto de entrega cambie por completo (ej. un poligono de cobertura mal
+// dibujado que cubre zonas muy alejadas entre si), y sin este chequeo se
+// reusaria el precio de una ubicacion vieja para una completamente distinta.
+function buscarCotizacionValida($cotizacion_id, $cod_sucursal, $tariff_id, $latitud, $longitud){
     if(empty($cotizacion_id)) return null;
     try{
         $query = "SELECT * FROM tb_cotizacion_precio
-            WHERE id = ? AND cod_sucursal = ? AND tariff_id = ? AND vigente_hasta >= NOW()
+            WHERE id = ? AND cod_sucursal = ? AND tariff_id = ?
+            AND ROUND(latitud, " . CACHE_PRECISION_DECIMALES . ") = ROUND(?, " . CACHE_PRECISION_DECIMALES . ")
+            AND ROUND(longitud, " . CACHE_PRECISION_DECIMALES . ") = ROUND(?, " . CACHE_PRECISION_DECIMALES . ")
+            AND vigente_hasta >= NOW()
             LIMIT 1";
-        return Conexion::buscarRegistro($query, [$cotizacion_id, $cod_sucursal, $tariff_id]);
+        return Conexion::buscarRegistro($query, [$cotizacion_id, $cod_sucursal, $tariff_id, $latitud, $longitud]);
     }catch(\Throwable $e){
         return null;
     }

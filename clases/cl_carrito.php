@@ -533,7 +533,7 @@ class cl_carrito
         $esExterno = isset(COURIERS_EXTERNOS[$cod_courier]);
 
         //1. Ticket exacto vigente - se usa tal cual, sin recalcular nada.
-        $ticket = $cotizacionIdRecibido ? buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $tarifa_id) : null;
+        $ticket = $cotizacionIdRecibido ? buscarCotizacionValida($cotizacionIdRecibido, $cod_sucursal, $tarifa_id, $entregaLat, $entregaLng) : null;
         if ($ticket) {
             $this->distancia_envio = $ticket['distancia_km'];
             $this->courier_envio = $ticket['courier_nombre'];
