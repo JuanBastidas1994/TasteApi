@@ -171,5 +171,57 @@ class cl_clientes
 		$query = "UPDATE tb_orden_puntos SET estado = 1 WHERE cod_orden = $cod_orden";
 		return Conexion::ejecutar($query,NULL);
 	}
+
+	/*HISTORIAL DE PUNTOS*/
+	//Todo medio_compra que no sea de la app se considera compra externa (tienda). 'API' es el default cuando la app no envia origen
+	const MEDIOS_APP = "'WEB','IOS','ANDROID','API'";
+
+	/* $movimiento: null (todos) | ACUMULADO | UTILIZADO | VENCIDO */
+	public function getHistorialPuntos($cod_usuario, $limit = 5, $offset = 0, $movimiento = null){
+		$cod_cliente = intval($this->cod_cliente);
+		$cod_usuario = intval($cod_usuario);
+		$limit = intval($limit);
+		$offset = intval($offset);
+		$mediosApp = self::MEDIOS_APP;
+
+		$filtro = "";
+		if(in_array($movimiento, ['ACUMULADO', 'UTILIZADO', 'VENCIDO']))
+			$filtro = "WHERE h.movimiento = '$movimiento'";
+
+		$query = "SELECT h.* FROM (
+					SELECT IF(c.medio_compra IN($mediosApp), 'COMPRA_APP', 'COMPRA_TIENDA') as tipo,
+						'ACUMULADO' as movimiento, SUM(cp.puntos) as valor, 'PUNTOS' as unidad,
+						COALESCE(c.fecha, cp.fecha_create) as fecha, cp.cod_orden
+					FROM tb_clientes_puntos cp
+					LEFT JOIN tb_orden_cabecera c ON c.cod_orden = cp.cod_orden
+					WHERE cp.cod_cliente = $cod_cliente
+					GROUP BY cp.cod_orden, COALESCE(c.fecha, cp.fecha_create), tipo
+
+					UNION ALL
+
+					SELECT 'PUNTOS_VENCIDOS' as tipo, 'VENCIDO' as movimiento, SUM(cp.puntos) as valor, 'PUNTOS' as unidad,
+						cp.fecha_caducidad as fecha, cp.cod_orden
+					FROM tb_clientes_puntos cp
+					WHERE cp.cod_cliente = $cod_cliente
+					AND cp.estado = 'A'
+					AND cp.fecha_caducidad <= NOW()
+					GROUP BY cp.cod_orden, cp.fecha_caducidad
+
+					UNION ALL
+
+					SELECT 'REDENCION_BENEFICIO' as tipo, 'UTILIZADO' as movimiento, SUM(p.monto) as valor, 'DINERO' as unidad,
+						c.fecha as fecha, c.cod_orden
+					FROM tb_orden_cabecera c
+					INNER JOIN tb_orden_pagos p ON p.cod_orden = c.cod_orden AND p.forma_pago = 'P'
+					INNER JOIN tb_orden_puntos op ON op.cod_orden = c.cod_orden AND op.estado = 1
+					WHERE c.cod_usuario = $cod_usuario
+					GROUP BY c.cod_orden, c.fecha
+				) h
+				$filtro
+				ORDER BY h.fecha DESC
+				LIMIT $offset, $limit";
+		$resp = Conexion::buscarVariosRegistro($query);
+		return ($resp) ? $resp : [];
+	}
 }
 ?>
