@@ -194,6 +194,7 @@ function getTimeline($historial, $tipo, $currentStatus, $asignacionMotorizado = 
         $aux['titulo'] = $steps['titulo'];
         $aux['image'] = url_resource.$steps['imagen'];
         $aux['texto'] = html_entity_decode($steps['desc_no_complete']);
+        $aux['texto_complete'] = html_entity_decode($steps['desc_complete']);
         $aux['fecha'] = "--";
         $aux['complete'] = false;
         $aux['current'] = false;
@@ -213,6 +214,7 @@ function getTimeline($historial, $tipo, $currentStatus, $asignacionMotorizado = 
                 $aux['titulo'] = "Pedido Cancelado";
                 $aux['image'] = url_resource."pas1.png";
                 $aux['texto'] = html_entity_decode("La Orden fue cancelada, si crees que es un error por favor comunícate con nosotros");
+                $aux['texto_complete'] = $aux['texto'];
                 $aux['fecha'] = "--";
                 $aux['complete'] = true;
                 $aux['current'] = true;
@@ -222,6 +224,28 @@ function getTimeline($historial, $tipo, $currentStatus, $asignacionMotorizado = 
         }
         $timeline[] = $aux;
     }
+    return completarPasosSaltados($timeline);
+}
+
+/**
+ * Si un paso posterior ya está completo, todos los anteriores se muestran completos aunque
+ * nunca se hayan marcado (ej: se asignó sin aceptar, o el cajero entregó sin que el motorizado
+ * pulsara "enviando"). Para el cliente no tiene sentido ver un hueco gris en medio del timeline.
+ * Esos pasos quedan sin fecha ("--") pero con el texto de completado.
+ */
+function completarPasosSaltados($timeline){
+    $ultimoCompleto = null;
+    foreach($timeline as $i => $paso){
+        if($paso['complete']) $ultimoCompleto = $i;
+    }
+    foreach($timeline as $i => &$paso){
+        if($ultimoCompleto !== null && $i < $ultimoCompleto && !$paso['complete']){
+            $paso['complete'] = true;
+            $paso['texto'] = $paso['texto_complete'];
+        }
+        unset($paso['texto_complete']);
+    }
+    unset($paso);
     return $timeline;
 }
 
@@ -269,6 +293,7 @@ function construirPasoMotorizado($estado, $titulo, $textoCompleto, $textoIncompl
     $aux['image'] = url_resource.$imagen;
     $aux['complete'] = $fecha !== null;
     $aux['current'] = false;
+    $aux['texto_complete'] = html_entity_decode($textoCompleto);
     if($fecha !== null){
         list($dia,$hora) = explode(" ", $fecha);
         $aux['texto'] = html_entity_decode($textoCompleto);

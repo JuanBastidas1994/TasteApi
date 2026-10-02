@@ -146,7 +146,7 @@ function formatHistorial($historial){
     $titulos = [
         'COMPRA_TIENDA' => 'Compra en tienda',
         'COMPRA_APP' => 'Compra en app',
-        'REDENCION_BENEFICIO' => 'Redención de beneficio',
+        'REDENCION_BENEFICIO' => 'Redención de puntos',
         'PUNTOS_VENCIDOS' => 'Puntos vencidos',
     ];
 

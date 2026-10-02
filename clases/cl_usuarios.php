@@ -88,24 +88,6 @@ class cl_usuarios
 		return $resp;
 	}
 	
-	public function getCliente($cod_usuario){  
-		$cod_empresa = cod_empresa;
-		$query = "SELECT c.cod_cliente, c.cod_nivel, c.num_documento 
-                    FROM tb_clientes c
-                    INNER JOIN tb_usuario_cliente uc ON c.cod_cliente = uc.cod_cliente AND uc.cod_usuario = $cod_usuario
-                    AND c.cod_empresa = $cod_empresa";
-		$resp = Conexion::buscarRegistro($query);
-		return $resp;
-	}
-	
-	public function addClient($cod_usuario, $cod_cliente, $num_documento){
-	    $query = "INSERT INTO tb_usuario_cliente(cod_usuario, cod_cliente) VALUES($cod_usuario, $cod_cliente)";
-	    Conexion::ejecutar($query,NULL);
-	    
-	    $query = "UPDATE tb_usuarios SET num_documento='$num_documento' WHERE cod_usuario = $cod_usuario";
-	    Conexion::ejecutar($query,NULL);
-	}
-	
 	public function getUserRegistrado($cod_usuario){
 		$query = "SELECT * FROM tb_usuarios WHERE cod_rol = 4 AND estado = 'A' AND cod_usuario = $cod_usuario";
 		$resp = Conexion::buscarRegistro($query);

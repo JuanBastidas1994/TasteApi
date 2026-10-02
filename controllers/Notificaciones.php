@@ -12,6 +12,10 @@ if ($method == "POST") {
             $return = desuscribir();
             showResponse($return);
         }
+        if ($metodo == "abierta") {
+            $return = registrarApertura();
+            showResponse($return);
+        }
     }
     showResponse(['success' => 0, 'mensaje' => 'Evento no existente']);
 } else {
@@ -41,6 +45,29 @@ function suscribir() {
     }
 
     return ['success' => 1, 'mensaje' => 'Token registrado'];
+}
+
+
+/* La app avisa que el usuario tocó una notificación (data.notificacion_id = tb_notificaciones_expo.id).
+   Alimenta "Abiertas" y "Tasa de apertura" en taste/notificaciones.php. Una apertura por usuario. */
+function registrarApertura() {
+    $usuario = validateUserAuthenticated();
+    $input   = validateInputs(["notificacion_id"]);
+
+    $notificacion = Conexion::buscarRegistro(
+        "SELECT id FROM tb_notificaciones_expo WHERE id = :id AND cod_empresa = :cod_empresa",
+        [':id' => (int)$input['notificacion_id'], ':cod_empresa' => $usuario['cod_empresa']]
+    );
+    if (!$notificacion) {
+        return ['success' => 0, 'mensaje' => 'Notificación no encontrada'];
+    }
+
+    Conexion::ejecutar(
+        "INSERT IGNORE INTO tb_notificaciones_expo_aperturas (notificacion_id, cod_usuario, fecha) VALUES (:id, :cod_usuario, :fecha)",
+        [':id' => $notificacion['id'], ':cod_usuario' => $usuario['cod_usuario'], ':fecha' => fecha()]
+    );
+
+    return ['success' => 1, 'mensaje' => 'Apertura registrada'];
 }
 
 

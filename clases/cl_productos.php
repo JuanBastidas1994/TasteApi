@@ -4,6 +4,7 @@ class cl_productos
 {
 		var $cod_producto = 0, $cod_sucursal = 0, $officeTaxable = 1;
 		public $promosByProducto = [];
+		private $prepTimesByProducto = null; // cod_producto => minutos (solo los que superan el umbral)
 		var $filtroEntrega;
 		
 		public function __construct($pcod_producto=null)
@@ -164,6 +165,46 @@ class cl_productos
 		    return $resp && $resp['total_tiempo'] !== null
                 ? (int)$resp['total_tiempo']
                 : 0;
+		}
+
+		/**
+		 * Indicador de tiempo de preparación para tarjeta, detalle y carrito.
+		 * Retorna null si el producto no alcanza el umbral configurado en tb_empresas.prep_time_badge_minutes.
+		 */
+		public function getPreparacion($cod_producto){
+			if($this->prepTimesByProducto === null){
+				$this->prepTimesByProducto = [];
+
+				$empresa = Conexion::buscarRegistro("SELECT prep_time_badge_minutes FROM tb_empresas WHERE cod_empresa = ".cod_empresa);
+				$umbral = ($empresa && (int)$empresa['prep_time_badge_minutes'] > 0) ? (int)$empresa['prep_time_badge_minutes'] : 120;
+
+				$query = "SELECT cod_producto, tiempo_preparacion
+						FROM tb_productos
+						WHERE cod_empresa = ".cod_empresa."
+						AND tiempo_preparacion >= $umbral";
+				$resp = Conexion::buscarVariosRegistro($query);
+				if($resp){
+					foreach ($resp as $row) {
+						$this->prepTimesByProducto[$row['cod_producto']] = (int)$row['tiempo_preparacion'];
+					}
+				}
+			}
+
+			$minutos = $this->prepTimesByProducto[$cod_producto] ?? null;
+			if($minutos === null) return null;
+
+			return [
+				'minutos' => $minutos,
+				'texto'   => $this->formatPrepTime($minutos),
+			];
+		}
+
+		// Siempre en horas: 120 => "2h", 90 => "1h30", 1560 => "26h", 2880 => "48h", 45 => "45min"
+		private function formatPrepTime($minutos){
+			if($minutos < 60) return $minutos."min";
+			$horas = intdiv($minutos, 60);
+			$resto = $minutos % 60;
+			return ($resto > 0) ? $horas."h".str_pad($resto, 2, "0", STR_PAD_LEFT) : $horas."h";
 		}
 
 		//LISTAS
@@ -820,6 +861,7 @@ class cl_productos
 			$producto['opciones'] = $this->opciones($producto['cod_producto']);
 			$producto['addcart'] = true;
 			$producto['evento'] = $this->getEventoProducto($producto['cod_producto']);
+			$producto['preparacion'] = $this->getPreparacion($producto['cod_producto']);
         	
         	if($producto['cod_producto_padre'] > 0)
         	    $producto['categoria'] = $this->getFirstCategory($producto['cod_producto_padre']);
@@ -901,7 +943,8 @@ class cl_productos
         	
         	$producto['empaque'] = $this->getEmpaque($producto['cod_producto']);
         	$producto['tag'] = $this->getTag($producto['cod_producto']);
-        	
+        	$producto['preparacion'] = $this->getPreparacion($producto['cod_producto']);
+
         	return $producto;
         }
         

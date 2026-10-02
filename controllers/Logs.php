@@ -36,7 +36,6 @@ function logStorage(){
 function logAppCaida(){
     global $input;
 
-    extract($input);
 	$datosObligatorios = array("origen","version","cod_usuario","error");
 	foreach ($datosObligatorios as $key => $value) {
 		if (!array_key_exists($value, $input)) {
@@ -46,25 +45,9 @@ function logAppCaida(){
 		}
 	}
 
-    $observacion1 = (isset($input['obs1'])) ? $input['obs1'] : "";
-    $observacion2 = (isset($input['obs2'])) ? $input['obs2'] : "";
+    mylog(json_encode($input), "CRASH_APP");
 
-    $cod_empresa = cod_empresa;
-    $query = "INSERT INTO log_error_app
-            SET cod_empresa = $cod_empresa,
-                SO = '$origen',
-                version_code = '$version',
-                usuario_logeado = $cod_usuario,
-                obs1 = '$observacion1',
-                obs2 = '$observacion2',
-                error = '$error',
-                fecha = NOW()";          
-    if(Conexion::ejecutar($query,NULL)){
-        $return['success'] = 1;
-        $return['mensaje'] = "Log creado correctamente";
-    }else{
-        $return['success'] = 0;
-        $return['mensaje'] = "No se pudo crear el log";
-    }
+    $return['success'] = 1;
+    $return['mensaje'] = "Log creado correctamente";
     return $return;
 }

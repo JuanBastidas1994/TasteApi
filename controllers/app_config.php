@@ -25,10 +25,6 @@ $Clcategorias = new cl_categorias();
 				$return = lstBanners();
 				showResponse($return);
 			}
-			if($first=="menu-digital"){
-			   $return = menuDigital(); 
-			   showResponse($return);
-			}
 			if($first=="portfolio"){
 			   $return = getPortfolio(); 
 			   showResponse($return);
@@ -39,10 +35,6 @@ $Clcategorias = new cl_categorias();
 			if($first=="pagina"){ //PAGINA INDICAR ALIAS
 			    $aliasPagina = $request[2];
 				$return = infoHome2(0, $aliasPagina);
-				showResponse($return);
-			}
-			if($first=="anuncios-web"){
-				$return = anuncioWebDetalle($request[2]);
 				showResponse($return);
 			}
 			if($first=="sugerencias-checkout"){
@@ -203,57 +195,6 @@ function lstBanners(){
 	$return['mensaje'] = "Correcto";
 	$return['data'] = $resp;
 	return $return; 
-}
-
-function menuDigital(){
-	$cod_empresa = cod_empresa;
-	$query = "SELECT mi.imagen
-                FROM tb_menu_digital m, tb_menu_digital_imagenes mi
-                WHERE m.cod_menu_digital = mi.cod_menu_digital
-                AND m.cod_empresa = $cod_empresa
-                AND mi.estado = 'A'
-                ORDER BY mi.posicion";
-	$resp = Conexion::buscarVariosRegistro($query);
-	foreach ($resp as $key => $anuncio) {
-		$resp[$key]['imagen'] = url.$anuncio['imagen'];
-		$info = getimagesize(urlUpload.$anuncio['imagen']);
-		if($info){
-		    $resp[$key]['ancho'] = $info[0];
-		    $resp[$key]['alto'] = $info[1];
-		}
-		
-	}
-	$return['success'] = 1;
-	$return['mensaje'] = "Lista imágenes menu digital";
-	$return['data'] = $resp;
-	return $return;
-}
-
-function anuncioWebDetalle($id){
-	$categoriasGenerales = [];
-	$cod_empresa = cod_empresa;
-	
-	$limit = (isset($_GET['limit'])) ? $_GET['limit'] : 999;
-	$query = "SELECT titulo, subtitulo, imagen as image_min, text_boton, accion_id, url_boton as accion_desc, categorias, descripcion 
-				FROM tb_anuncio_detalle WHERE cod_anuncio_cabecera = $id AND cod_empresa = $cod_empresa AND estado = 'A' ORDER BY posicion LIMIT 0,$limit";
-	$resp = Conexion::buscarVariosRegistro($query);
-	foreach ($resp as $key => $anuncio) {
-		$categorias = $anuncio['categorias'];
-		unset($resp[$key]['categorias']);
-
-		$resp[$key]['image_min'] = url.$anuncio['image_min'];
-		if($categorias !== ""){
-			$resp[$key]['categorias'] = explode(",",$categorias);
-			fillArrayItemsNoRepeat($categoriasGenerales, $resp[$key]['categorias']);
-		}
-		else
-			$resp[$key]['categorias'] = [];
-	}
-	$return['success'] = 1;
-	$return['mensaje'] = "Lista Anuncio web";
-	$return['categorias'] = $categoriasGenerales;
-	$return['data'] = $resp;
-	return $return;
 }
 
 function ordenarItems($id, $cod_sucursal){
