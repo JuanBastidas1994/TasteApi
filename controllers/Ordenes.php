@@ -479,11 +479,7 @@ function validarOrdenCorrecta(){
     // Guardar Trama si el pago es con tarjeta..
 	// Para guradar las tildes correctamente json_encode( $text, JSON_UNESCAPED_UNICODE )
 	
-    $PreordenId = 0;
-    if(!isset($with_token))
-    	$PreordenId = $Clordenes->saveJson($cod_usuario, json_encode($input, JSON_UNESCAPED_UNICODE), $tarjetaAmount);
-	else
-		$PreordenId = $Clordenes->saveJsonToken($cod_usuario, $with_token, json_encode($input, JSON_UNESCAPED_UNICODE), $tarjetaAmount); // GUARDADO DE JSON CON TOKEN
+    $PreordenId = $Clordenes->saveJson($cod_usuario, json_encode($input, JSON_UNESCAPED_UNICODE), $tarjetaAmount);
     if(!$PreordenId){
         $return['success'] = 0;
 		$return['mensaje'] = "No se pudo crear la preorden, por favor vuelva a intentarlo";

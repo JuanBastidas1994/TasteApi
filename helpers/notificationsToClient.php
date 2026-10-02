@@ -19,9 +19,6 @@ function notifyNewOrder($order_id){
         sendMessageWhatsappVideo($orden);
     }
 
-	//Enviar mensajes por telegram al administrador
-	sendMessageTelegram($orden);
-
 	// Push al cliente confirmando que su pedido entró — getOrderForNotify() no trae cod_usuario,
 	// así que se re-consulta con get() (sí lo trae) en vez de agregarlo a esa query compartida.
 	notificarPedidoRecibido($Clordenes->get($order_id));
@@ -138,61 +135,5 @@ function sendMessageWhatsappVideo($orden){
 	$ClMessages->sendVideo($phone, $url, $texto, 0);
 }
 
-
-function sendMessageTelegram($orden){
-    
-    require_once "clases/cl_empresas.php";
-    $Clempresas = new cl_empresas();
-    
-    // global $Clempresas;
-    if(!$Clempresas->getPermiso('NOTIFY_TELEGRAM')) return false;
-    
-    require_once "clases/cl_telegram.php";
-	$clTelegram = new cl_telegram();
-	
-	extract($orden);
-	
-	$chats = $clTelegram->getChatsAvailables($cod_sucursal);
-	foreach($chats as $chat){
-	   // $clTelegram->sendOrder($chat['chat_id'],buildTextTelegram($orden),'orderdetail_'.$cod_orden);
-	    $clTelegram->sendOrder($chat['chat_id'],buildTextTelegram($orden));
-	}
-    
-}
-
-function buildTextTelegram($orden){
-	extract($orden);
-	$tipo = ($is_envio == 1) ? "Delivery" : "Pickup";
-	$emoji = ($is_envio == 1) ? '🛵' : '📦';
-	$entrega = ($is_programado) ? dateTimeLatino($hora_retiro) : "Ahora";
-	
-	$texto = "<b>Nuevo pedido en $sucursal (#$cod_orden)</b>\n";
-	$texto .= "Cliente: <i>$nombre</i>\n";
-	$texto .= "Total: <b>$$total</b>\n";
-	$texto .= "$emoji $tipo, Entrega: $entrega\n";
-	
-	foreach($pagos as $pago){
-        $id = $pago['id'];
-        $nombre = $pago['nombre'];
-        $monto = $pago['monto'];
-        switch ($id) {
-            case 'E':
-                $emojiPayment = '💵';
-                break;
-            case 'T':
-                $emojiPayment = '💳';
-                break;
-            case 'TB':
-                $emojiPayment = '🏦';
-                break;
-            default:
-                $emojiPayment = '❓';
-                break;
-        }
-        $texto .= "$emojiPayment $nombre: $$monto\n";
-    }
-    
-	return $texto;
-}
 
 ?>

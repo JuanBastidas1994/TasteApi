@@ -187,10 +187,5 @@ class cl_ultramsg
             return json_decode($response, true);
         }
         
-        
-        function getChatByOffice($cod_sucursal){
-            $query = "SELECT * FROM tb_telegram_sucursal WHERE estado = 'ACTIVO' AND cod_sucursal = $cod_sucursal";
-            return Conexion::buscarRegistro($query);
-        }
 }
 ?>
