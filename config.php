@@ -23,3 +23,5 @@ define('SMTPSecure', env('MAIL_ENCRYPTION', ''));
 define('port', env('MAIL_PORT', '2525'));
 define('correoReplyTo', env('MAIL_REPLY_TO', ''));
 define('setFromDefault', env('MAIL_FROM', ''));
+
+define('TRACKING_SECRET', env('TRACKING_SECRET', ''));
