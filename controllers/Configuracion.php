@@ -84,7 +84,6 @@ function getConfiguracion($aplicacion = ""){
 		$return['niveles'] = $ClEmpresas->getNiveles();
 		$return['faqs'] = $ClEmpresas->getFaqs();
 	}else{
-		$fidelizacion['activo'] = false;
 		$return['fidelizacion'] = null;
 	}
 	$return['giftcards_active'] = ($empresa['giftcard'] == 1) ? true : false;
