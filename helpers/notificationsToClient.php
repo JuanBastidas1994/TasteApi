@@ -20,6 +20,10 @@ function notifyNewOrder($order_id){
         sendMessageWhatsappVideo($orden);
     }
 
+	//Enviar mensajes por telegram a los administradores (si la empresa tiene NOTIFY_TELEGRAM)
+	require_once __DIR__ . "/telegramNotifier.php";
+	notificarTelegramNuevaOrden($orden);
+
 	// Push al cliente confirmando que su pedido entró — getOrderForNotify() no trae cod_usuario,
 	// así que se re-consulta con get() (sí lo trae) en vez de agregarlo a esa query compartida.
 	notificarPedidoRecibido($Clordenes->get($order_id));
