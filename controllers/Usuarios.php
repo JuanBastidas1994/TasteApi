@@ -200,7 +200,8 @@ function preLoginExpress() {
 			$codigo = "0017";
 
 		if($Clusuarios->setUserCodeLogin($cod_usuario, $codigo)) {
-			ExecuteRemoteQuery(url_api . "correos/loginExpress.php?alias=" . alias . "&id=$cod_usuario&pass=$codigo");
+			require_once "email_template/emails.php";
+			enviarCodigoLogin($cod_usuario, $codigo);
 	
 			$return['success'] = 1;
 			$return['mensaje'] = "Código temporal actualizado";
@@ -220,7 +221,8 @@ function preLoginExpress() {
 		
 		$codigo = codeNumber(LOGIN_EMAIL_NUM_DIGITS);
 		if($Clusuarios->setUserCodeRegister($email, $codigo)) {
-			ExecuteRemoteQuery(url_api . "correos/registroExpress.php?alias=" . alias . "&pass=$codigo&correo=$email");
+			require_once "email_template/emails.php";
+			enviarCodigoRegistro($email, $codigo);
 		}
 		
 		/*VALIDAR CAMPOS EN EL REGISTRO*/

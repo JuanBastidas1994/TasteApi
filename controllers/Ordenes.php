@@ -379,6 +379,13 @@ function validarOrdenCorrecta(){
 	$tarjetaAmount = 0;
 	$totalAutoritativo = floatval($cart['total']);
 
+	// El credito nunca puede superar el total de la orden (ej. aplico credito y luego
+	// un cupon bajo el total). Sin esto la otra forma de pago quedaria en negativo
+	// y se consumiria mas credito del que vale la orden.
+	if($creditAmount > 0 && round(floatval($creditAmount), 2) > round($totalAutoritativo, 2)){
+	    showResponse([ 'success' => 0, 'mensaje' => 'El crédito aplicado supera el total de la orden, vuelve a aplicarlo', 'errorCode' => 'CREDITO_SUPERA_TOTAL' ]);
+	}
+
 	if($creditAmount > 0 && count($MetodoPago) == 1){ //Los puntos son la unica forma de pago
 	    if($creditAmount < $totalAutoritativo){
 	        showResponse([ 'success' => 0, 'mensaje' => 'Los puntos no cubren la totalidad de la orden', 'errorCode' => 'FALTA_FORMA_PAGO' ]);
@@ -409,6 +416,12 @@ function validarOrdenCorrecta(){
     		}
     		$MetodoPago[$key]['monto'] = $monto;
 		}
+	}
+
+	// Si los puntos cubren la totalidad, no guardar las otras formas de pago en $0
+	// (el cliente pudo dejar seleccionada tarjeta/efectivo). Solo en este caso.
+	if($creditAmount > 0 && round(floatval($creditAmount), 2) >= round($totalAutoritativo, 2)){
+	    $MetodoPago = array_values(array_filter($MetodoPago, fn($p) => $p['tipo'] == "P" || floatval($p['monto']) > 0));
 	}
 	$input['metodoPago'] = $MetodoPago;
 	/*FIN MONTOS DE PAGO*/
@@ -1093,7 +1106,8 @@ function validarCuponera($order_id){
                 $query = "INSERT INTO tb_orden_cuponera (cod_orden, codigo) VALUES $valuesString";
                 Conexion::ejecutar($query, null);
                 
-                ExecuteRemoteQuery(url_api . "correos/orden_cuponera.php?alias=" . alias . "&id=$order_id");
+                require_once "email_template/emails.php";
+                enviarCorreoCuponera($order_id);
             }
             
         }

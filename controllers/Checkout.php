@@ -109,11 +109,19 @@ function getInfoCheckout(){
         }
     }else{
         $dia = fecha_only();
+        $horasHoy = getIntervalsHour($office_id, "", $type, $office['intervalo'], $preparation_time);
         $office['programar_disponibilidad'][0] = [
             "dia" => $dia,
             "diaTexto" => fechaLatinoShortWeekday($dia),
-            "horas_pickup" => getIntervalsHour($office_id, "", $type, $office['intervalo'], $preparation_time),
+            "horas_pickup" => $horasHoy,
         ];
+
+        // Abierta pero sin intervalos restantes hoy (ya paso el ultimo intervalo o el tiempo de
+        // preparacion lo empuja despues del cierre): se informa la proxima apertura para el checkout.
+        if($office['abierto'] && count($horasHoy) == 0){
+            $office['sin_horarios_hoy'] = true;
+            $office['prox_apertura'] = $ClSucursales->proximaApertura($office_id);
+        }
     }
     
     //PEDIDO EXPRESS
