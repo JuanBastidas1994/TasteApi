@@ -3,7 +3,8 @@
 	
 function notifyNewOrder($order_id){
     //Enviar correo al usuario
-	ExecuteRemoteQuery(url_api . "correos/orden_complete.php?alias=" . alias . "&id=$order_id");
+	require_once __DIR__ . "/../email_template/emails.php";
+	enviarCorreoOrdenCompleta($order_id);
 
 	require_once "clases/cl_ordenes.php";
 	$Clordenes = new cl_ordenes();
