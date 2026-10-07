@@ -35,6 +35,7 @@ $funciones = array(
     "configuracion" => "controllers/Configuracion.php",
     "datafast" => "controllers/datafast.php",
     "nuvei" => "controllers/Nuvei.php",
+    "deuna" => "controllers/Deuna.php",
     "app" => "controllers/app_config.php",
     "correos"=> "controllers/Correos.php",
 	"applogs" => "controllers/Logs.php",

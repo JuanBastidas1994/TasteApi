@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba Deuna</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 520px; margin: 24px auto; padding: 0 16px; color: #222; }
+  label { display: block; margin-top: 10px; font-size: 13px; color: #555; }
+  input { width: 100%; padding: 8px; box-sizing: border-box; }
+  button { margin: 12px 8px 0 0; padding: 10px 14px; cursor: pointer; }
+  #codigo { font-size: 44px; letter-spacing: 8px; text-align: center; margin: 20px 0 4px; font-weight: 700; }
+  #estado { text-align: center; padding: 10px; border-radius: 6px; background: #f2f2f2; }
+  .ok { background: #d9f5df !important; }
+  .mal { background: #fde0e0 !important; }
+  pre { background: #f6f6f6; padding: 8px; font-size: 12px; overflow: auto; max-height: 220px; }
+</style>
+</head>
+<body>
+<h2>Prueba de pago Deuna</h2>
+<p style="font-size:13px;color:#555">Pantalla de prueba del flujo de código único de 6 dígitos. Primero crea la preorden desde la tienda (pago con tarjeta, tipo T) y pega aquí su id.</p>
+
+<label>URL base del API</label>
+<input id="base" value="">
+<label>Api-Key de la empresa</label>
+<input id="apikey">
+<label>User-Id (cod_usuario dueño de la preorden)</label>
+<input id="userid">
+<label>Preorden (preordenId)</label>
+<input id="preorden">
+
+<button id="btnCrear">Generar código</button>
+<button id="btnMock" style="display:none">Simular pago (solo mock)</button>
+
+<div id="codigo"></div>
+<div id="cuenta" style="text-align:center;font-size:13px;color:#555"></div>
+<div id="estado">Sin cobro</div>
+<pre id="log"></pre>
+
+<script>
+var $ = function (id) { return document.getElementById(id); };
+$('base').value = location.origin;
+['base', 'apikey', 'userid', 'preorden'].forEach(function (k) {
+  try { if (localStorage.getItem('deuna_' + k)) $(k).value = localStorage.getItem('deuna_' + k); } catch (e) {}
+});
+
+var timerStatus = null, timerCuenta = null;
+
+function log(t, o) { $('log').textContent = '[' + new Date().toLocaleTimeString() + '] ' + t + (o ? '\n' + JSON.stringify(o, null, 2) : '') + '\n\n' + $('log').textContent; }
+
+function llamar(metodo, ruta, body) {
+  ['base', 'apikey', 'userid', 'preorden'].forEach(function (k) { try { localStorage.setItem('deuna_' + k, $(k).value); } catch (e) {} });
+  return fetch($('base').value.replace(/\/$/, '') + '/' + ruta, {
+    method: metodo,
+    headers: { 'Content-Type': 'application/json', 'Api-Key': $('apikey').value, 'User-Id': $('userid').value },
+    body: body ? JSON.stringify(body) : undefined
+  }).then(function (r) { return r.json(); });
+}
+
+function setEstado(txt, clase) { $('estado').textContent = txt; $('estado').className = clase || ''; }
+
+function detener() { clearInterval(timerStatus); clearInterval(timerCuenta); }
+
+$('btnCrear').onclick = function () {
+  detener();
+  $('codigo').textContent = ''; $('cuenta').textContent = '';
+  llamar('POST', 'deuna/create', { cod_preorden: parseInt($('preorden').value, 10), format: 3 }).then(function (r) {
+    log('deuna/create', r);
+    if (r.success != 1) { setEstado(r.mensaje, 'mal'); return; }
+    $('codigo').textContent = r.data.numericCode;
+    $('btnMock').style.display = r.data.mock ? '' : 'none';
+    setEstado('Digita este código en la app Deuna (monto $' + r.data.amount.toFixed(2) + ')');
+
+    var fin = Date.now() + r.data.expires_in * 1000;
+    timerCuenta = setInterval(function () {
+      var s = Math.max(0, Math.round((fin - Date.now()) / 1000));
+      $('cuenta').textContent = 'Vence en ' + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
+      if (s == 0) clearInterval(timerCuenta);
+    }, 500);
+    timerStatus = setInterval(consultar, 4000);
+  });
+};
+
+function consultar() {
+  llamar('GET', 'deuna/status/' + parseInt($('preorden').value, 10)).then(function (r) {
+    log('deuna/status', r);
+    var st = r.data && r.data.status;
+    if (st == 'PAID') { detener(); $('cuenta').textContent = ''; setEstado('Pagado. Orden: ' + r.data.id, 'ok'); }
+    else if (st == 'EXPIRED') { detener(); setEstado('El código venció, genera uno nuevo', 'mal'); }
+    else if (r.success != 1) { setEstado(r.mensaje, 'mal'); }
+  });
+}
+
+$('btnMock').onclick = function () {
+  llamar('POST', 'deuna/mock-pay', { cod_preorden: parseInt($('preorden').value, 10) }).then(function (r) { log('deuna/mock-pay', r); consultar(); });
+};
+</script>
+</body>
+</html>

@@ -818,44 +818,6 @@ function closemodalPreorden(){
 	return $return;
 }
 
-function validarSonidoAutoasignacion($fecha_retiro) {
-	try {
-		$sonar = 1;
-		$auto_asignar = 1;
-		$minutos = 0;
-		
-		//NO SONAR SI NO ES PARA HOY
-		$fecha_retiro = ($fecha_retiro != "") ? $fecha_retiro : fecha(); 
-		$fechaOrden = explode(" ", $fecha_retiro)[0]; 
-		if($fechaOrden <> fecha_only()) {
-			$sonar = 0;
-			$auto_asignar = 0;
-		}
-		else {
-			$diffTime = diffTime($fecha_retiro, fecha());
-			$minutos = (int)$diffTime["minutos"] + ((int)$diffTime["horas"] * 60);
-			if($minutos > 15){
-				$auto_asignar = 0;
-			}
-		}
-
-		return array(
-			"sonar" => $sonar, 
-			"auto_asignar" => $auto_asignar, 
-			"minutos" => $minutos
-		);
-
-	} catch (\Throwable $th) {
-		//throw $th;
-		return array(
-			"sonar" => $sonar, 
-			"auto_asignar" => $auto_asignar, 
-			"minutos" => $minutos
-		);
-	}
-	
-}
-
 // function 
 function calificarOrden(){
     global $input;

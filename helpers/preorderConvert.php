@@ -25,7 +25,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
 	
 	$ordenTrama = json_decode($preorden['json'], true);
-	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE
+	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE - 4 DEUNA
 	$ordenTrama['lot_number'] = (!empty($preorden['lot_number'])) ? $preorden['lot_number'] : "";
 	
 	$cod_sucursal = $ordenTrama['cod_sucursal'];
@@ -139,8 +139,52 @@ function debitPaymentCard($paymentProvider, &$paymentId, &$paymentAuth, $cod_suc
 	    
 	    if (!$payment["success"])
 	        throw new Exception('No se pudo generar el cobro '.json_encode($payment));
+    }else if($paymentProvider == 4){ //Deuna: el cobro ya lo aprobó controllers/Deuna.php tras verificarlo con Deuna
+        require_once "clases/cl_deuna.php";
+        $cobro = cl_deuna::getCobro($paymentId);
+        if (!$cobro || $cobro['estado'] != 'APROBADO' || $cobro['transfer_number'] != $paymentAuth || $cobro['cod_sucursal'] != $cod_sucursal)
+            throw new Exception('El pago con Deuna no está aprobado');
     }
     return true;
+}
+
+// Vivía en controllers/Ordenes.php; está aquí porque storePreorder() la necesita desde cualquier controlador (Ordenes, Deuna).
+function validarSonidoAutoasignacion($fecha_retiro) {
+	try {
+		$sonar = 1;
+		$auto_asignar = 1;
+		$minutos = 0;
+		
+		//NO SONAR SI NO ES PARA HOY
+		$fecha_retiro = ($fecha_retiro != "") ? $fecha_retiro : fecha(); 
+		$fechaOrden = explode(" ", $fecha_retiro)[0]; 
+		if($fechaOrden <> fecha_only()) {
+			$sonar = 0;
+			$auto_asignar = 0;
+		}
+		else {
+			$diffTime = diffTime($fecha_retiro, fecha());
+			$minutos = (int)$diffTime["minutos"] + ((int)$diffTime["horas"] * 60);
+			if($minutos > 15){
+				$auto_asignar = 0;
+			}
+		}
+
+		return array(
+			"sonar" => $sonar, 
+			"auto_asignar" => $auto_asignar, 
+			"minutos" => $minutos
+		);
+
+	} catch (\Throwable $th) {
+		//throw $th;
+		return array(
+			"sonar" => $sonar, 
+			"auto_asignar" => $auto_asignar, 
+			"minutos" => $minutos
+		);
+	}
+	
 }
 
 ?>

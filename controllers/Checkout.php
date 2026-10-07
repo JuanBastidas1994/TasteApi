@@ -159,7 +159,15 @@ function getInfoCheckout(){
     $proveedor = 0;
     $save_card = false;
     $paymentTokens = $ClSucursales->getPaymentTokens($office_id, $proveedor);
-    if($proveedor != 1 && $proveedor > 0){ //Paymentez o Payphone
+    // Deuna (proveedor 4): si la sucursal lo tiene configurado reemplaza al botón de tarjeta.
+    // Nunca se envían sus credenciales al front: paga todo por /deuna/create y /deuna/status.
+    $deunaActivo = Conexion::buscarRegistro("SELECT 1 FROM tb_empresa_sucursal_deuna WHERE estado = 'A' AND cod_sucursal = :s", [':s' => $office_id]);
+    if($deunaActivo){
+        $proveedor = 4;
+        $paymentTokens = null;
+    }
+
+    if($proveedor != 1 && $proveedor != 4 && $proveedor > 0){ //Paymentez o Payphone
         $office['payment_tokens'] = $paymentTokens;
         $save_card = ($paymentTokens['save_card'] == 1);
     }
@@ -172,7 +180,17 @@ function getInfoCheckout(){
                                                     $office['transferencia_img'],
                                                     $office_id
                                                 );
-    
+
+    // Con Deuna el método "T" se paga con el código de 6 dígitos de la app Deuna
+    if($proveedor == 4){
+        foreach($payments as $k => $p){
+            if($p['cod_forma_pago'] == 'T'){
+                $payments[$k]['nombre'] = 'Deuna';
+                $payments[$k]['descripcion'] = 'Paga con el código de la app Deuna';
+            }
+        }
+    }
+
     //Fidelizacion
     $clientLoyalty = null;
     $loyalty = $ClEmpresas->getFidelizacion();
