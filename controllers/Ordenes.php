@@ -128,6 +128,14 @@ function validarOrdenCorrecta(){
 	$msgError = "";
 	extract($input);
 
+	// if(db == "prod_snapshot_20261001"){
+	if(db == "digitalm_mi_ecommerce"){
+		$return["success"] = 0;
+		$return["mensaje"] = "No se puede realizar compras por mantenimiento, intentelo mas tarde";
+		$return["errorCode"] = "MAX_LIMIT_PAYMENT_METHODS";
+		showResponse($return);
+	}
+
 	$input = validateInputs(array("cod_usuario", "cod_sucursal", "telefono", "total", "metodoEnvio", "metodoPago", "productos"));
     logAdd(json_encode($input),"trama-ingreso","validar-orden");
 
