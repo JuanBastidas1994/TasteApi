@@ -25,3 +25,7 @@ define('correoReplyTo', env('MAIL_REPLY_TO', ''));
 define('setFromDefault', env('MAIL_FROM', ''));
 
 define('TRACKING_SECRET', env('TRACKING_SECRET', ''));
+
+if (!defined('API_GOOGLE_MAPS')) {
+    define('API_GOOGLE_MAPS', env('API_GOOGLE_MAPS', ''));
+}
