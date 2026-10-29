@@ -132,13 +132,13 @@ function getInfoCheckout(){
                                 : '';
     $pedido_express = false;
     if(cod_empresa == 204){
-        // TEMPORAL: opción "Pedido Express" desactivada. Descomentar para volver a mostrarla.
-        // $pedido_express = [
-        //     'title' => 'Pedido Express',
-        //     'desc' => 'Enviaremos el pedido lo mas pronto posible',
-        //     'price' => 5,
-        //     'active' => $office['abierto']
-        // ];
+        $pedido_express = [
+            'title' => 'Pedido Express',
+            'desc' => 'Enviaremos el pedido lo mas pronto posible',
+            'price' => 5,
+            // TEMPORAL: opción "Pedido Express" desactivada. Volver a poner $office['abierto'] para mostrarla.
+            'active' => false
+        ];
         $deliveryTextTitle = "Entrega en horario disponible";
         $hora = intval(fechaFormat('H'));
         if($hora < 12){
