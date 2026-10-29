@@ -132,15 +132,12 @@ function getInfoCheckout(){
                                 : '';
     $pedido_express = false;
     if(cod_empresa == 204){
-        // Se puede apagar con PEDIDO_EXPRESS_ACTIVO=false en .env (400 Grados)
-        if(env('PEDIDO_EXPRESS_ACTIVO', false)){
-            $pedido_express = [
-                'title' => 'Pedido Express',
-                'desc' => 'Enviaremos el pedido lo mas pronto posible',
-                'price' => 5,
-                'active' => $office['abierto']
-            ];
-        }
+        $pedido_express = [
+            'title' => 'Pedido Express',
+            'desc' => 'Enviaremos el pedido lo mas pronto posible',
+            'price' => 5,
+            'active' => $office['abierto']
+        ];
         $deliveryTextTitle = "Entrega en horario disponible";
         $hora = intval(fechaFormat('H'));
         if($hora < 12){
