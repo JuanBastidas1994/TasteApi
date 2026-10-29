@@ -188,6 +188,20 @@ function validarOrdenCorrecta(){
 	// $input['telefono'] = "+593".$telefono;
 	/*VALIDAR TELEFONO */
 
+	/*VALIDAR NOMBRE: sin nombre en la cuenta (Apple no siempre lo manda) el checkout lo envia en nombre_cliente y se guarda una sola vez*/
+	if (!clienteTieneNombre($usuario['nombre'])) {
+		$nombreCliente = limpiarNombre(isset($input['nombre_cliente']) ? $input['nombre_cliente'] : "");
+		$validNombre = validarNombre($nombreCliente);
+		if (!$validNombre['success']) {
+			$return['success'] = 0;
+			$return['mensaje'] = ($nombreCliente === "") ? "Escribe tu nombre y apellido para continuar" : $validNombre['mensaje'];
+			$return['errorCode'] = "NOMBRE_REQUERIDO";
+			showResponse($return);
+		}
+		$Clusuarios->set_nombre($cod_usuario, $nombreCliente);
+	}
+	/*VALIDAR NOMBRE */
+
 	/*CUPON EXISTE*/
 	$cupon_code = isset($input['cupon']) ?  $input['cupon'] : "";
 	if ($cupon_code !== "") {

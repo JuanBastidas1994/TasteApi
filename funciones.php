@@ -40,6 +40,27 @@ function verificateWs(&$codigo)
     return false;
 }
 
+// El callback (url_back) de MedianetPay no envia Api-Key: la empresa se resuelve desde la preorden
+// que viaja en "reference" (formato "<cod_preorden>-<timestamp>"). La seguridad la dan la IP de origen y la validacion del monto.
+function isMedianetCallbackRequest($method){
+  $path = isset($_SERVER['PATH_INFO']) ? trim($_SERVER['PATH_INFO'], '/') : '';
+  return $method == "POST" && $path === "medianet/callback";
+}
+
+function verificateMedianetCallback(&$empresa){
+  $body = json_decode(file_get_contents('php://input'), true);
+  $reference = is_array($body) ? (string)($body['reference'] ?? '') : '';
+  $cod_preorden = intval(explode('-', $reference)[0]);
+  if($cod_preorden <= 0)
+    return false;
+  $query = "SELECT e.* FROM tb_preorden_json pj
+              INNER JOIN tb_usuarios u ON pj.cod_usuario = u.cod_usuario
+              INNER JOIN tb_empresas e ON u.cod_empresa = e.cod_empresa
+              WHERE pj.cod_preorden = $cod_preorden";
+  $empresa = Conexion::buscarRegistro($query);
+  return $empresa ? true : false;
+}
+
 function getUserHeader(){
   $userId = getHeaderCI("User-Id");
   if($userId !== null){
@@ -537,6 +558,19 @@ function validarNombre($nombre){
   
   return [ 'success' => true, 'mensaje' => 'Nombre valido' ];
 
+}
+
+/* Un cliente tiene nombre si no esta vacio (Apple no siempre lo manda ni los clientes lo envian como "null"/"undefined").
+   Mismo criterio que el dashboard nuevo (CustomerAccounts::hasRealName). */
+function clienteTieneNombre($nombre){
+  $nombre = strtolower(trim((string) $nombre));
+  return $nombre !== "" && $nombre !== "null" && $nombre !== "undefined";
+}
+
+/* Nombre escrito por el cliente en el checkout: sin etiquetas ni espacios repetidos, maximo 150 caracteres. */
+function limpiarNombre($nombre){
+  $nombre = preg_replace('/\s+/u', ' ', strip_tags((string) $nombre));
+  return mb_substr(trim(str_replace(["'", '"'], "", $nombre)), 0, 150);
 }
 
 function ValidarCedula($cedula){

@@ -149,7 +149,10 @@ function getPrecioDefinitivo(){
 
 	//Alcance actual: solo couriers internos (GOOGLE_MAPS/LINEA_RECTA), igual que siempre
 	//hizo este endpoint. Los externos se cotizan por separado via getCobertura().
-	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, $tariff_id, true);
+	//Empresa en modo "elegir": la sucursal puede estar fuera de su cobertura, se extiende la tarifa (getConPrecio ya la deja pasar)
+	global $ClEmpresas;
+	$extrapolar = $ClEmpresas->getPermiso('SUCURSAL_CERRADA_ELEGIR') ? true : false;
+	$precioEnvio = getPrecioCourier(0, $sucursal, $latitud, $longitud, $tariff_id, true, $extrapolar);
 
 	logCotizacionEnvio('PRECIO_ENDPOINT', $office_id, $latitud, $longitud, $precioEnvio['distancia'], $precioEnvio['courierName'], $precioEnvio['precio'], $tariff_id, $precioEnvio['precio']);
 
@@ -206,12 +209,19 @@ function getCobertura($latitud, $longitud){
 		usort($sucursales, build_sorter('distance'));  //ORDENAR POR LA DISTANCIA
 		
 		$item = $sucursales[0];
-		if($item['abierto'] == false){ //Si el local esta cerrado, busca el que este abierto
+
+		//Modo por cliente (tb_permisos_empresas.identificador = SUCURSAL_CERRADA_ELEGIR):
+		//no cambia sola a otra sucursal, ofrece al cliente las abiertas mas cercanas.
+		global $ClEmpresas;
+		$modoElegir = $ClEmpresas->getPermiso('SUCURSAL_CERRADA_ELEGIR') ? true : false;
+		$cerradaMasCercana = ($item['abierto'] == false);
+
+		if($cerradaMasCercana && !$modoElegir){ //Modo auto: busca la abierta mas cercana CON cobertura
 		    foreach($sucursales as $sucursal){
 		        if($sucursal['abierto'] == true){
 		            $item = $sucursal;
 		            $sucursales[0] = $item;
-		            //Solo la primera!!
+		            break; //Solo la primera (la mas cercana, la lista ya viene ordenada)
 		        }
 		    }
 		}
@@ -258,6 +268,20 @@ function getCobertura($latitud, $longitud){
 		$return['success'] = 1;
 		$return['mensaje'] = "Correcto nueva modificacion";
 		$return['data'] = $sucursales;
+		$return['modo_sucursal_cerrada'] = $modoElegir ? 'elegir' : 'auto';
+		$return['alternativas'] = [];
+		//Sucursal que el cliente eligio antes (la guarda la app): aqui solo se dice si todavia vale
+		$preferida = $modoElegir ? intval(isset($_GET['preferred_office']) ? $_GET['preferred_office'] : 0) : 0;
+		if($modoElegir && $cerradaMasCercana){
+			$return['alternativas'] = getAlternativasAbiertas($latitud, $longitud, $sucursales[0]['cod_sucursal'], array_column($sucursales, 'cod_sucursal'), $preferida);
+		}
+		if($preferida > 0){
+			$valida = ($sucursales[0]['abierto'] == true && intval($sucursales[0]['cod_sucursal']) === $preferida);
+			foreach($return['alternativas'] as $alternativa){
+				if(intval($alternativa['cod_sucursal']) === $preferida) $valida = true;
+			}
+			$return['preferida_valida'] = $valida;
+		}
 	}else{
 		$return['success'] = 0;
 		$return['mensaje'] = "No hay Cobertura";
@@ -265,6 +289,48 @@ function getCobertura($latitud, $longitud){
 	showResponse($return);
 }
 
+
+//Las 2 sucursales abiertas mas cercanas, aunque esten fuera de su cobertura,
+//con su precio de envio. Si el courier no puede cotizar, esa sucursal se omite.
+function getAlternativasAbiertas($latitud, $longitud, $excluir, $conCobertura = [], $incluir = 0){
+	global $ClSucursales;
+	$maxKm = defined('SUCURSAL_ALTERNATIVA_MAX_KM') ? SUCURSAL_ALTERNATIVA_MAX_KM : 25;
+	$abiertas = $ClSucursales->listaAbiertasCercanas($latitud, $longitud, $excluir, 2, $maxKm);
+
+	//La que el cliente ya habia elegido (preferred_office) se incluye mientras siga abierta aunque ya no sea de las 2 mas cercanas
+	if($incluir > 0 && !in_array($incluir, array_map('intval', array_column($abiertas, 'cod_sucursal')))){
+		foreach($ClSucursales->listaAbiertasCercanas($latitud, $longitud, $excluir, 100, $maxKm) as $candidata){
+			if(intval($candidata['cod_sucursal']) === $incluir){
+				$abiertas[] = $candidata;
+				break;
+			}
+		}
+	}
+
+	$alternativas = [];
+	foreach($abiertas as $sucursal){
+		$cod_sucursal = $sucursal['cod_sucursal'];
+		$cod_courier = 0;
+		$courier = $ClSucursales->getCourier($cod_sucursal);
+		if($courier){
+			$cod_courier = $courier['cod_courier'];
+		}
+		try{
+			$tarifa = getTarifaDefault($cod_sucursal);
+			$precioEnvio = getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa, true, true); // por ruta y extendiendo la tarifa fuera de su rango: nunca envio en 0
+			$sucursal['cod_courier'] = $cod_courier;
+			$sucursal['precio'] = $precioEnvio['precio'];
+			$sucursal['metodo_cobertura'] = $precioEnvio['courierName'];
+			$sucursal['distancia'] = $precioEnvio['distancia'];
+			$sucursal['tarifa'] = $tarifa;
+			$sucursal['fuera_cobertura'] = !in_array($cod_sucursal, $conCobertura);
+			$alternativas[] = $sucursal;
+		}catch(Exception $e){
+			continue;
+		}
+	}
+	return $alternativas;
+}
 
 function getDisponibilidad($cod_sucursal, $fecha=""){
     global $ClSucursales;

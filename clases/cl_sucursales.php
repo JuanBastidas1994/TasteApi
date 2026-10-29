@@ -112,6 +112,39 @@ class cl_sucursales
 			return $data;
 		}
 
+		//Sucursales ABIERTAS mas cercanas al punto, SIN filtrar por cobertura.
+		//Se usa en modo SUCURSAL_CERRADA_ELEGIR para ofrecer alternativas cuando la
+		//mas cercana con cobertura esta cerrada. $maxKm limita que tan lejos se ofrece.
+		public function listaAbiertasCercanas($latitud, $longitud, $excluir = 0, $limite = 2, $maxKm = 25){
+			$cod_empresa = cod_empresa;
+			$excluir = intval($excluir);
+			$query = "SELECT s.*,
+					(6378*acos(cos(radians($latitud))*cos(radians(s.latitud))*cos(radians(s.longitud)-radians($longitud))
+					+sin(radians($latitud))*sin(radians(s.latitud)))) AS distance
+					FROM tb_sucursales s
+					WHERE s.cod_empresa = $cod_empresa
+					AND s.delivery = 1
+					AND s.estado = 'A'
+					AND s.cod_sucursal <> $excluir
+					HAVING distance <= $maxKm
+					ORDER BY distance";
+			$data = Conexion::buscarVariosRegistro($query);
+			$abiertas = [];
+			foreach ($data as $sucursal) {
+				$abierto = $this->disponibilidad($sucursal['cod_sucursal']);
+				if(!$abierto) continue;
+				$sucursal['hora_ini'] = $abierto['hora_ini'];
+				$sucursal['hora_fin'] = $abierto['hora_fin'];
+				$sucursal['abierto'] = true;
+				$sucursal['image'] = url.$sucursal['image'];
+				$sucursal['banner_xl'] = ($sucursal['banner_xl'] !== "") ? url.$sucursal['banner_xl'] : "";
+				$sucursal['distance'] = number_format($sucursal['distance'], 3);
+				$abiertas[] = $sucursal;
+				if(count($abiertas) >= $limite) break;
+			}
+			return $abiertas;
+		}
+
 		public function getPrecio($distancia, $cod_sucursal){
 			//Esquema de rangos
 			$query = "SELECT sc.distancia_ini, sc.distancia_fin, sc.precio, s.envio_grava_iva, e.impuesto 
@@ -171,10 +204,32 @@ class cl_sucursales
 			return 0;
 		}
 
+		//Mas alla del ultimo rango (sucursal alternativa fuera de su cobertura): costo por km del ultimo rango
+		//(precio / "hasta") por los km reales, nunca menos que el precio del ultimo rango. Igual que el dashboard nuevo.
+		public function getTarifaPrecioExtrapolado($distancia, $cod_tarifa) {
+			$query = "SELECT distancia_fin, precio FROM tb_sucursal_costo_envio_rango
+					WHERE cod_tarifa = ? ORDER BY distancia_fin DESC LIMIT 1";
+			$ultimo = Conexion::buscarRegistro($query, [$cod_tarifa]);
+			if(!$ultimo || floatval($ultimo['distancia_fin']) <= 0 || floatval($distancia) < floatval($ultimo['distancia_fin'])) {
+				return 0;
+			}
+			$precio = floatval($ultimo['precio']);
+			return max($precio, round($precio * floatval($distancia) / floatval($ultimo['distancia_fin']), 2));
+		}
+
 		public function getConPrecio($cod_sucursal, $latitud, $longitud){
 
 			$cod_empresa = cod_empresa;
 			$point = "Point($latitud $longitud)";
+
+			//Modo SUCURSAL_CERRADA_ELEGIR: el cliente puede escoger una sucursal fuera
+			//de su cobertura (paga el envio que corresponda), limitada por distancia maxima.
+			$permiso = Conexion::buscarRegistro("SELECT 1 FROM tb_permisos_empresas
+					WHERE identificador = 'SUCURSAL_CERRADA_ELEGIR' AND cod_empresa = $cod_empresa");
+			$maxKm = defined('SUCURSAL_ALTERNATIVA_MAX_KM') ? floatval(SUCURSAL_ALTERNATIVA_MAX_KM) : 25;
+			$having = $permiso
+				? "HAVING (inside_polygon <= 0) OR (is_inside = 2 AND distance < s.distancia_km) OR distance <= $maxKm"
+				: "HAVING (inside_polygon <= 0) OR (is_inside = 2 AND distance < s.distancia_km)";
 			/*is_inside
 				1: Dentro del poligono
 				2: No tiene poligonos, depende de los km a la redonda
@@ -183,15 +238,14 @@ class cl_sucursales
 					IFNULL(st_distance(so.zone, ST_POINTFROMTEXT('$point')), 99) AS inside_polygon,
 					IFNULL(MBRCONTAINS(so.zone, ST_POINTFROMTEXT('$point')),2) AS is_inside,
 					(6378*acos(cos(radians($latitud))*cos(radians(s.latitud))*cos(radians(s.longitud)-radians($longitud))
-					+sin(radians($latitud))*sin(radians(s.latitud))))AS distance 
+					+sin(radians($latitud))*sin(radians(s.latitud))))AS distance
 					FROM tb_sucursales s
 					LEFT JOIN tb_sucursal_cobertura so ON so.cod_sucursal=s.cod_sucursal
 					WHERE s.cod_empresa=$cod_empresa
 					AND s.cod_sucursal = $cod_sucursal
-					AND s.delivery = 1 
+					AND s.delivery = 1
 					AND s.estado='A'
-					HAVING (inside_polygon <= 0) OR
-							(is_inside = 2 AND distance < s.distancia_km)";
+					$having";
 			$data = Conexion::buscarRegistro($query);
 			if($data){
 			    $data['image'] = url.$data['image'];
@@ -507,7 +561,13 @@ class cl_sucursales
             $query = "SELECT *, 0 AS save_card FROM tb_empresa_sucursal_payphone WHERE estado='A' AND cod_sucursal = $cod_sucursal";
             $resp = Conexion::buscarRegistro($query);
             if($resp) return $resp;
-            
+
+            //Medianet (al final: no altera a las sucursales que ya usan otro proveedor)
+            $proveedor = 4;
+            $query = "SELECT ambiente, 0 AS save_card FROM tb_empresa_sucursal_medianet WHERE estado='A' AND cod_sucursal = $cod_sucursal";
+            $resp = Conexion::buscarRegistro($query);
+            if($resp) return $resp;
+
             $proveedor = 0;
             return null;
         }
