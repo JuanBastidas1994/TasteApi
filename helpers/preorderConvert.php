@@ -25,7 +25,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 	$Clordenes->convertingPreOrden($cod_preorden, $paymentId, $paymentAuth);
 	
 	$ordenTrama = json_decode($preorden['json'], true);
-	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE
+	$ordenTrama['paymentProveedor'] = $paymentProvider; //1 DATAFAST - 2 PAYMENTEZ - 3 PAYPHONE - 4 MEDIANET
 	$ordenTrama['lot_number'] = (!empty($preorden['lot_number'])) ? $preorden['lot_number'] : "";
 	
 	$cod_sucursal = $ordenTrama['cod_sucursal'];
@@ -100,7 +100,7 @@ function storePreorder($preorden, $paymentId, $paymentAuth, $paymentProvider, &$
 }
 
 function debitPaymentCard($paymentProvider, &$paymentId, &$paymentAuth, $cod_sucursal){
-    if($paymentProvider == 2 || $paymentProvider == 0){ //Paymentez o Efectivo
+    if($paymentProvider == 2 || $paymentProvider == 0 || $paymentProvider == 4){ //Paymentez, Efectivo o Medianet (el cobro ya lo confirmó el callback)
         return true;
     }else if($paymentProvider == 1){ //Datafast
         require_once "clases/cl_datafast.php";

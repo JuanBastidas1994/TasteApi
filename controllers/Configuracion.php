@@ -51,6 +51,7 @@ function getConfiguracion($aplicacion = ""){
 		$info['welcome_image'] = url.'bienvenida_modal.png';
 		$info['share_image'] = url.'compartir.jpg';
 		$info['menu_type'] = $empresa['menu_type'];
+		$info['start_on_menu'] = ($empresa['iniciar_en_menu'] ?? 0) == 1;
 		$info['pixel'] = $empresa['facebook_pixel'];
 		$info['url_android'] = $empresa['url_android'];
 		$info['url_ios'] = $empresa['url_ios'];

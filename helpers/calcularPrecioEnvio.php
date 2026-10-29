@@ -62,7 +62,8 @@ function getUltimaCotizacionReciente($cod_sucursal, $latitud, $longitud, $minuto
     }
 }
 
-function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_id = 0, $getRuta = true){
+//$extrapolar: sucursal fuera de su cobertura (modo SUCURSAL_CERRADA_ELEGIR) - mas alla del ultimo rango se extiende la tarifa
+function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_id = 0, $getRuta = true, $extrapolar = false){
     $cod_sucursal = $sucursal['cod_sucursal'];
     $courier = "";
     $precio = 0;
@@ -89,7 +90,7 @@ function getPrecioCourier($cod_courier, $sucursal, $latitud, $longitud, $tarifa_
             $courier = "LINEA_RECTA";
         }
         if($tarifa_id > 0){
-            $precio = getPriceWithTariff($tarifa_id, $distancia);
+            $precio = getPriceWithTariff($tarifa_id, $distancia, $extrapolar);
         }
         
         if($precio==0){ //Por si acaso no haya tarifas al menos no de precio 0
@@ -222,10 +223,14 @@ function getTarifaDefault($cod_sucursal){
     return $tarifa ? $tarifa['cod_tarifa'] : 0;
 }
 
-function getPriceWithTariff($tarifa_id, $distancia){
+function getPriceWithTariff($tarifa_id, $distancia, $extrapolar = false){
     require_once "clases/cl_sucursales.php";
 	$ClSucursales = new cl_sucursales();
-    return number_format($ClSucursales->getTarifaPrecio($distancia, $tarifa_id),2);
+    $precio = $ClSucursales->getTarifaPrecio($distancia, $tarifa_id);
+    if($precio == 0 && $extrapolar){
+        $precio = $ClSucursales->getTarifaPrecioExtrapolado($distancia, $tarifa_id);
+    }
+    return number_format($precio,2);
 }
 
 

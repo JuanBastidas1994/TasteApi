@@ -84,6 +84,9 @@ class cl_usuarios
 		    
 		    $datos_facturacion = $this->getDatosFacturacion($cod_usuario);
 		    $resp['datos_facturacion'] = ($datos_facturacion) ? $datos_facturacion : null;
+
+		    //true = la app/web debe pedirlo (campo junto al telefono) antes de crear la orden
+		    $resp['requiere_nombre'] = !clienteTieneNombre($resp['nombre']);
 		}
 		return $resp;
 	}
@@ -122,6 +125,13 @@ class cl_usuarios
 	function set_telefono($cod_usuario, $telefono){
 		$query = "UPDATE tb_usuarios SET telefono = '$telefono' WHERE cod_usuario = $cod_usuario";
 		return Conexion::ejecutar($query,NULL);
+	}
+
+	//Actualiza el nombre de la cuenta y el del cliente (fidelizacion) con consultas preparadas
+	function set_nombre($cod_usuario, $nombre){
+		$ok = Conexion::ejecutar("UPDATE tb_usuarios SET nombre = ? WHERE cod_usuario = ?", [$nombre, $cod_usuario]);
+		Conexion::ejecutar("UPDATE tb_clientes SET nombre = ? WHERE cod_usuario = ? AND cod_empresa = ?", [$nombre, $cod_usuario, cod_empresa]);
+		return $ok;
 	}
 
 	function set_telefono_all_orders($cod_usuario, $telefono){

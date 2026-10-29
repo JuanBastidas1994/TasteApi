@@ -102,6 +102,9 @@ $Clusuarios = new cl_usuarios();
 			}else if($first=="add_phone_novalidate"){
 				$return = add_phone_no_validate();
 				showResponse($return);
+			}else if($first=="add_name"){
+				$return = add_name();
+				showResponse($return);
 			}else if($first=="add_birthday"){
 				$return = add_birthday();
 				showResponse($return);
@@ -495,12 +498,9 @@ function login_apple(){
 	$esRegistroNuevo = false;
 
 	if(!$usuario && $correoEnviado !== ""){
-		if(count(explode(" ", $nombreEnviado)) < 2) {
-			$return['success'] = 0;
-	    	$return['mensaje'] = "Ingrese al menos un nombre y un apellido";
-	    	$return['error_code'] = "NOMBRE_INVALIDO";
-	    	return $return;
-		}
+			// Apple solo manda el nombre la primera vez y solo si el usuario quiere: sin nombre NO se rechaza el registro,
+			// la cuenta queda con nombre vacio (requiere_nombre) y el checkout lo pide una sola vez antes de la orden.
+			$nombreEnviado = clienteTieneNombre($nombreEnviado) ? limpiarNombre($nombreEnviado) : "";
 
 		if(!validar_correo($correoEnviado)){
 			$return['success'] = 0;
@@ -904,6 +904,31 @@ function add_phone_no_validate(){
 	}
     		
     return $return;
+}
+
+/* Guarda el nombre completo cuando la cuenta no lo tiene (Apple no siempre lo envia). El checkout tambien lo guarda con la orden. */
+function add_name(){
+	global $Clusuarios;
+
+	$input = validateInputs(array("cod_usuario", "name"));
+	extract($input);
+
+	$usuario = $Clusuarios->get($cod_usuario);
+	if(!$usuario){
+		return [ 'success' => 0, 'mensaje' => 'Usuario no existente', 'errorCode' => 'USUARIO_INEXISTENTE' ];
+	}
+
+	$name = limpiarNombre($name);
+	$valid = validarNombre($name);
+	if(!$valid['success']){
+		return [ 'success' => 0, 'mensaje' => $valid['mensaje'], 'errorCode' => 'NOMBRE_INVALIDO' ];
+	}
+
+	if(!$Clusuarios->set_nombre($cod_usuario, $name)){
+		return [ 'success' => 0, 'mensaje' => 'No se pudo actualizar el nombre, intentelo nuevamente' ];
+	}
+
+	return [ 'success' => 1, 'mensaje' => 'Nombre actualizado correctamente', 'nombre' => $name ];
 }
 
 function add_birthday(){

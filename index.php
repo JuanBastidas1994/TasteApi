@@ -35,6 +35,7 @@ $funciones = array(
     "configuracion" => "controllers/Configuracion.php",
     "datafast" => "controllers/datafast.php",
     "nuvei" => "controllers/Nuvei.php",
+    "medianet" => "controllers/Medianet.php",
     "app" => "controllers/app_config.php",
     "correos"=> "controllers/Correos.php",
 	"applogs" => "controllers/Logs.php",
@@ -60,7 +61,7 @@ $endpoint = $_SERVER['REQUEST_URI'];
 
 //saveLog('server.log', json_encode($_SERVER));
 
-if(verificateWs($empresa))
+if(isMedianetCallbackRequest($method) ? verificateMedianetCallback($empresa) : verificateWs($empresa))
 {
 	$cod_empresa = $empresa['cod_empresa'];
 	$alias = $empresa['alias'];

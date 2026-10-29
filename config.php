@@ -26,6 +26,11 @@ define('setFromDefault', env('MAIL_FROM', ''));
 
 define('TRACKING_SECRET', env('TRACKING_SECRET', ''));
 
+// MedianetPay: URL pública donde Medianet confirma el pago (url_back). En local debe ser un túnel (ngrok/cloudflared).
+define('MEDIANET_CALLBACK_BASE', env('MEDIANET_CALLBACK_BASE', url_api));
+// IPs de origen permitidas para el callback, separadas por coma. Vacío = sin validación (solo QA/local).
+define('MEDIANET_ALLOWED_IPS', env('MEDIANET_ALLOWED_IPS', ''));
+
 if (!defined('API_GOOGLE_MAPS')) {
     define('API_GOOGLE_MAPS', env('API_GOOGLE_MAPS', ''));
 }
