@@ -4,20 +4,16 @@
 		$request - Url y variables GET
 		$input - Solo metodo POST, PUT
 	POST /medianet/getLink  -> genera el link de pago (requiere Api-Key y User-Id)
-	POST /medianet/callback -> url_back de Medianet (sin Api-Key; la empresa se resuelve por la referencia, ver verificateMedianetCallback) */
+	El url_back de Medianet NO vive en este API (Medianet no envia cabeceras): es webhooks/medianet_callback.php del dashboard Taste */
 
 require_once "clases/cl_ordenes.php";
 require_once "clases/cl_empresas.php";
 require_once "clases/cl_medianet.php";
 
-const MEDIANET_PROVIDER = 4;
 
 if ($method == "POST" && count($request) == 2) {
 	if ($request[1] == "getLink") {
 		showResponse(getLink());
-	}
-	if ($request[1] == "callback") {
-		showResponse(callback());
 	}
 }
 
@@ -68,8 +64,10 @@ function getLink(){
 		// Referencia única por intento (máx. 40). El callback recupera la preorden con el número antes del guion.
 		$reference = $preorden_id . '-' . time();
 
-		$base_back = rtrim(MEDIANET_CALLBACK_BASE ?: url_api, '/');
-		$urlBack = $base_back . '/medianet/callback';
+		// url_back: URL completa del webhook (MEDIANET_URL_BACK), se envía tal cual a Medianet
+		$urlBack = trim(MEDIANET_URL_BACK);
+		if (!filter_var($urlBack, FILTER_VALIDATE_URL))
+			throw new Exception('Medianet: falta configurar MEDIANET_URL_BACK en el .env del API');
 		// medianet_ref va en la query real (antes del "#"): la web usa HashRouter y con "?m=slug" (demos) o utm en la URL,
 		// pegarlo al final dejaba "#/checkout/paymentprocess&medianet_ref=1" y la ruta no existía (página en blanco)
 		$partes = explode('#', $return_url, 2);
@@ -87,81 +85,3 @@ function getLink(){
 	}
 }
 
-/** Confirmación de pago enviada por MedianetPay (url_back). Debe ser idempotente. */
-function callback(){
-	global $input;
-
-	logAdd(json_encode($input), "trama-ingreso", "medianet-callback");
-
-	if (!cl_medianet::isAllowedIp($_SERVER['REMOTE_ADDR'] ?? '')) {
-		logAdd("IP no autorizada: " . ($_SERVER['REMOTE_ADDR'] ?? ''), "rechazado", "medianet-callback");
-		http_response_code(403);
-		echo json_encode(['success' => 0, 'mensaje' => 'No autorizado']);
-		exit();
-	}
-
-	$reference = trim((string)($input['reference'] ?? ''));
-	$cod_preorden = intval(explode('-', $reference)[0]);
-	if ($cod_preorden <= 0)
-		return ['success' => 0, 'mensaje' => 'Referencia inválida'];
-
-	$paymentId = substr((string)($input['payment_reference'] ?? ''), 0, 60);
-	$paymentAuth = substr((string)($input['authorization'] ?? ''), 0, 15);
-
-	try {
-		$Clordenes = new cl_ordenes();
-		$preorden = $Clordenes->getPreOrden($cod_preorden);
-		if (!$preorden)
-			return ['success' => 0, 'mensaje' => 'Preorden no existente'];
-
-		// Reintento del callback: la orden ya existe
-		if ($preorden['cod_orden'] != 0)
-			return ['success' => 1, 'mensaje' => 'Orden ya creada'];
-
-		if ($preorden['estado'] === 'CREANDO_ORDEN')
-			return ['success' => 1, 'mensaje' => 'Orden en proceso'];
-
-		if (!cl_medianet::isApproved($input['response'] ?? '')) {
-			if (in_array($preorden['estado'], ['VALIDADA', 'CERRADA']))
-				$Clordenes->failurePreOrden($cod_preorden, $paymentId, '', 'Pago rechazado Medianet');
-			return ['success' => 1, 'mensaje' => 'Pago no aprobado registrado'];
-		}
-
-		// Aprobado: el monto y la moneda deben coincidir con la preorden
-		$esperado = medianetCardAmount($preorden);
-		$recibido = round(floatval($input['amount'] ?? 0), 2);
-		if (($input['currency'] ?? '') !== 'USD' || abs($esperado - $recibido) > 0.01) {
-			logAdd("Monto/moneda no coinciden preorden=$cod_preorden esperado=$esperado recibido=$recibido", "critico", "medianet-callback");
-			return ['success' => 0, 'mensaje' => 'El monto no coincide con la preorden'];
-		}
-
-		// Un pago aprobado tiene prioridad sobre un intento previo rechazado
-		if ($preorden['estado'] === 'FALLADA')
-			$Clordenes->setStatusPreorden($cod_preorden, 'VALIDADA');
-
-		$preorden = $Clordenes->marcarPagoExitosoPreOrden($cod_preorden, $paymentId, $paymentAuth, '');
-
-		require_once "helpers/preorderConvert.php";
-		$total = 0;
-		$id = storePreorder($preorden, $paymentId, $paymentAuth, MEDIANET_PROVIDER, $total);
-
-		try {
-			require_once "helpers/notificationsToClient.php";
-			notifyNewOrder($id);
-		} catch (Exception $e) {
-			logAdd("Error notifyNewOrder orden $id: " . $e->getMessage(), "error", "medianet-callback");
-		}
-
-		try {
-			require_once "helpers/pixelFacebook.php";
-			trackPurchaseServer($id);
-		} catch (Exception $e) {
-			logAdd("Error trackPurchaseServer orden $id: " . $e->getMessage(), "error", "medianet-callback");
-		}
-
-		return ['success' => 1, 'mensaje' => 'Orden creada correctamente'];
-	} catch (Exception $e) {
-		logAdd("Error creando orden preorden=$cod_preorden: " . $e->getMessage(), "critico", "medianet-callback");
-		return ['success' => 0, 'mensaje' => $e->getMessage()];
-	}
-}

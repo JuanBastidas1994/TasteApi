@@ -26,8 +26,8 @@ define('setFromDefault', env('MAIL_FROM', ''));
 
 define('TRACKING_SECRET', env('TRACKING_SECRET', ''));
 
-// MedianetPay: URL pública donde Medianet confirma el pago (url_back). En local debe ser un túnel (ngrok/cloudflared).
-define('MEDIANET_CALLBACK_BASE', env('MEDIANET_CALLBACK_BASE', url_api));
+// MedianetPay: URL COMPLETA del webhook url_back (se envía tal cual a Medianet, sin concatenar nada). Ej: https://dashboard.tastelatam.com/webhooks/medianet_callback.php
+define('MEDIANET_URL_BACK', env('MEDIANET_URL_BACK', ''));
 // IPs de origen permitidas para el callback, separadas por coma. Vacío = sin validación (solo QA/local).
 define('MEDIANET_ALLOWED_IPS', env('MEDIANET_ALLOWED_IPS', ''));
 

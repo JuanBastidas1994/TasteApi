@@ -61,7 +61,7 @@ $endpoint = $_SERVER['REQUEST_URI'];
 
 //saveLog('server.log', json_encode($_SERVER));
 
-if(isMedianetCallbackRequest($method) ? verificateMedianetCallback($empresa) : verificateWs($empresa))
+if(verificateWs($empresa))
 {
 	$cod_empresa = $empresa['cod_empresa'];
 	$alias = $empresa['alias'];
