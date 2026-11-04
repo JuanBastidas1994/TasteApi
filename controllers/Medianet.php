@@ -71,6 +71,11 @@ function getLink(){
 		// medianet_ref va en la query real (antes del "#"): la web usa HashRouter y con "?m=slug" (demos) o utm en la URL,
 		// pegarlo al final dejaba "#/checkout/paymentprocess&medianet_ref=1" y la ruta no existía (página en blanco)
 		$partes = explode('#', $return_url, 2);
+		// Quitar cualquier medianet_ref que ya traiga la URL (reintentos de pago) para no duplicarlo
+		$partes[0] = preg_replace('/[?&]medianet_ref=[^&]*/', '', $partes[0]);
+		// si se quitó el primer parámetro, el siguiente queda con "&" en vez de "?"
+		if (strpos($partes[0], '?') === false && ($pos = strpos($partes[0], '&')) !== false)
+			$partes[0] = substr_replace($partes[0], '?', $pos, 1);
 		$urlRedirect = $partes[0] . (strpos($partes[0], '?') === false ? '?' : '&') . 'medianet_ref=' . $preorden_id . (isset($partes[1]) ? '#' . $partes[1] : '');
 
 		$resp = $ClMedianet->createLink($reference, $total, $base, $iva, "Compra en " . name_site . " Preord#$preorden_id", $urlBack, $urlRedirect);
