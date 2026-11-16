@@ -136,6 +136,16 @@ function validarOrdenCorrecta(){
 		showResponse($return);
 	}
 
+	//Empresa migrada al nuevo dashboard: no se pueden crear órdenes desde esta versión
+	global $Clempresas;
+	$empresaInfo = $Clempresas->get();
+	if($empresaInfo && isset($empresaInfo['nuevo_dashboard']) && $empresaInfo['nuevo_dashboard'] == 1){
+		$return["success"] = 0;
+		$return["mensaje"] = "No se puede crear una orden en esta versión";
+		$return["errorCode"] = "VERSION_NO_SOPORTADA";
+		showResponse($return);
+	}
+
 	$input = validateInputs(array("cod_usuario", "cod_sucursal", "telefono", "total", "metodoEnvio", "metodoPago", "productos"));
     logAdd(json_encode($input),"trama-ingreso","validar-orden");
 
